@@ -405,7 +405,6 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data == "admin_view_users" and user_id == ADMIN_ID:
         try:
             now = datetime.now()
-            # Filter active subscribers
             subscribed_users = list(users_col.find({
                 "subscription_expiry": {"$gt": now}
             }))
@@ -417,14 +416,10 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             msg = f"👥 **Active Subscribed Users ({len(subscribed_users)}):**\n\n"
             for u in subscribed_users:
                 uid = u.get("user_id", "N/A")
-                
-                # Sanitize name to avoid Markdown syntax errors
                 raw_name = str(u.get("full_name", "User"))
                 safe_name = raw_name.replace("*", "").replace("_", "").replace("`", "").replace("[", "").replace("]", "")
-                
                 bal = u.get("balance", 0.0)
                 otp_cnt = u.get("otp_count", 0)
-                
                 msg += f"• **{safe_name}** (`{uid}`)\n  └ 💰 Balance: `${bal:.4f}` USDT | 📩 OTP Rcv: `{otp_cnt}`\n\n"
                 
             await query.message.reply_text(msg, parse_mode="Markdown")
@@ -574,7 +569,8 @@ async def sub_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     bkash_kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🌸 Bkash", callback_data="pay_bkash_sub")]
+        [InlineKeyboardButton("🌸 Bkash", callback_data="pay_bkash_sub")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]
     ])
     await query.message.reply_text("💳 **Payment Method Select Korun:**", reply_markup=bkash_kb)
     return SUB_AMOUNT
@@ -582,13 +578,15 @@ async def sub_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def sub_bkash_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("📥 **Subscription Amount (30 Tk) Likhun:**")
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await query.message.reply_text("📥 **Subscription Amount (30 Tk) Likhun:**", reply_markup=cancel_kb)
     return SUB_AMOUNT
 
 async def sub_amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     if text != "30":
-        await update.message.reply_text("❌ Subscription fee shudhu **30** Tk. Doya kore `30` likhun.")
+        cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+        await update.message.reply_text("❌ Subscription fee shudhu **30** Tk. Doya kore `30` likhun.", reply_markup=cancel_kb)
         return SUB_AMOUNT
 
     msg = (
@@ -598,13 +596,15 @@ async def sub_amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE
         f"📱 Bkash Number: `{ADMIN_BKASH}`\n\n"
         f"Taka pathanor por apnar **TrxID**-ti likhe message din:"
     )
-    await update.message.reply_text(msg, parse_mode="Markdown")
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=cancel_kb)
     return SUB_TXID
 
 async def sub_txid_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     txid = update.message.text.strip()
     context.user_data["sub_txid"] = txid
-    await update.message.reply_text("📸 **Ekhon Bkash Payment-er Screenshot (Photo) Pathan:**")
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await update.message.reply_text("📸 **Ekhon Bkash Payment-er Screenshot (Photo) Pathan:**", reply_markup=cancel_kb)
     return SUB_SCREENSHOT
 
 async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -633,7 +633,8 @@ async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_
 # Deposit Conversation Flow
 async def deposit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     payment_kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("💛 Binance Pay", callback_data="pay_binance")]
+        [InlineKeyboardButton("💛 Binance Pay", callback_data="pay_binance")],
+        [InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]
     ])
     await update.message.reply_text("💳 **Payment Method select korunk:**", reply_markup=payment_kb)
     return WAITING_AMOUNT
@@ -641,14 +642,16 @@ async def deposit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def deposit_binance_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("📥 **Apni koto USDT pathaben ta likhe janan (Minimum: `1` USDT, jemon: `1`, `2.5`, `5`):**")
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await query.message.reply_text("📥 **Apni koto USDT pathaben ta likhe janan (Minimum: `1` USDT, jemon: `1`, `2.5`, `5`):**", reply_markup=cancel_kb)
     return WAITING_AMOUNT
 
 async def deposit_amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         amount = float(update.message.text.strip())
         if amount < 1.0:
-            await update.message.reply_text("❌ Minimum deposit amount **1 USDT**. Doya kore 1 ba tar besi amount likhun.")
+            cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+            await update.message.reply_text("❌ Minimum deposit amount **1 USDT**. Doya kore 1 ba tar besi amount likhun.", reply_markup=cancel_kb)
             return WAITING_AMOUNT
 
         context.user_data["dep_amount"] = amount
@@ -660,16 +663,19 @@ async def deposit_amount_received(update: Update, context: ContextTypes.DEFAULT_
             f"⚠️ **Note:** Minimum deposit 1 USDT. Binance Pay-er madhyome kono extra fee charai pathano jabe.\n\n"
             f"Dollar pathanor por apnar **Order ID / TxID**-ti likhe message din:"
         )
-        await update.message.reply_text(msg, parse_mode="Markdown")
+        cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=cancel_kb)
         return WAITING_TXID
     except ValueError:
-        await update.message.reply_text("❌ Sothik shongkha likhun (jemon: `1` ba `5`).")
+        cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+        await update.message.reply_text("❌ Sothik shongkha likhun (jemon: `1` ba `5`).", reply_markup=cancel_kb)
         return WAITING_AMOUNT
 
 async def deposit_txid_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     txid = update.message.text.strip()
     context.user_data["dep_txid"] = txid
-    await update.message.reply_text("📸 **Ekhon apnar payment-er screenshot (Photo) Pathan:**")
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await update.message.reply_text("📸 **Ekhon apnar payment-er screenshot (Photo) Pathan:**", reply_markup=cancel_kb)
     return WAITING_SCREENSHOT
 
 async def deposit_screenshot_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -697,7 +703,12 @@ async def deposit_screenshot_received(update: Update, context: ContextTypes.DEFA
     return ConversationHandler.END
 
 async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("❌ Process batil kora hoyeche.")
+    if update.callback_query:
+        query = update.callback_query
+        await query.answer()
+        await query.message.edit_text("❌ Process batil kora hoyeche.")
+    elif update.message:
+        await update.message.reply_text("❌ Process batil kora hoyeche.")
     return ConversationHandler.END
 
 # Admin Actions Conversation Handlers
@@ -824,7 +835,10 @@ def main():
             SUB_TXID: [MessageHandler(filters.TEXT & ~filters.COMMAND, sub_txid_received)],
             SUB_SCREENSHOT: [MessageHandler(filters.PHOTO, sub_screenshot_received)]
         },
-        fallbacks=[CommandHandler("cancel", cancel_flow)]
+        fallbacks=[
+            CommandHandler("cancel", cancel_flow),
+            CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")
+        ]
     )
 
     # Deposit Flow Handler
@@ -838,7 +852,10 @@ def main():
             WAITING_TXID: [MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_txid_received)],
             WAITING_SCREENSHOT: [MessageHandler(filters.PHOTO, deposit_screenshot_received)]
         },
-        fallbacks=[CommandHandler("cancel", cancel_flow)]
+        fallbacks=[
+            CommandHandler("cancel", cancel_flow),
+            CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")
+        ]
     )
 
     # Admin Conversation Handler
@@ -858,7 +875,10 @@ def main():
             ADMIN_RATE_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_rate_process)],
             ADMIN_BROADCAST: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_broadcast_process)],
         },
-        fallbacks=[CommandHandler("cancel", cancel_flow)]
+        fallbacks=[
+            CommandHandler("cancel", cancel_flow),
+            CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")
+        ]
     )
 
     app.add_handler(CommandHandler("start", start))
