@@ -338,7 +338,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if isinstance(res, dict) and "tel" in res and "idNum" in res:
             raw_phone = str(res["tel"])
-            # Update 2: '+' sign add kora jate easily copy kora jay
+            # '+' sign add kora jate easily copy kora jay
             phone_num = f"+{raw_phone}" if not raw_phone.startswith("+") else raw_phone
             id_num = str(res["idNum"])
 
@@ -462,7 +462,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if id_num in active_orders:
             set_number_status(id_num, "bad")
             active_orders.pop(id_num, None)
-            # Update 1: Cancel korle popup vanish/remove kore dewa ebong text update kora
+            # Cancel korle popup vanish/remove kore dewa ebong message update kora
             try:
                 await query.edit_message_text(
                     "❌ **Number-ti cancel kora hoyeche (Kono balance katini).**",
@@ -649,7 +649,7 @@ async def deposit_binance_selected(update: Update, context: ContextTypes.DEFAULT
     query = update.callback_query
     await query.answer()
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-    await update.message.reply_text("📥 **Apni koto USDT pathaben ta likhe janan (Minimum: `1` USDT, jemon: `1`, `2.5`, `5`):**", reply_markup=cancel_kb)
+    await query.message.reply_text("📥 **Apni koto USDT pathaben ta likhe janan (Minimum: `1` USDT, jemon: `1`, `2.5`, `5`):**", reply_markup=cancel_kb)
     return WAITING_AMOUNT
 
 async def deposit_amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -869,7 +869,6 @@ def main():
         entry_points=[
             CallbackQueryHandler(admin_ban_start, pattern="^admin_ban_start$"),
             CallbackQueryHandler(admin_unban_start, pattern="^admin_unban_start$"),
-            Command
             CallbackQueryHandler(admin_add_bal_start, pattern="^admin_add_bal_start$"),
             CallbackQueryHandler(admin_rate_start, pattern="^admin_rate_start$"),
             CallbackQueryHandler(admin_broadcast_start, pattern="^admin_broadcast_start$"),
