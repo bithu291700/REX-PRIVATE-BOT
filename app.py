@@ -204,7 +204,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u_data = get_or_create_user(user_id, user.full_name)
 
     if u_data.get("is_banned", False):
-        await update.message.reply_text("❌ 𝘽𝘼𝙉 𝘽𝙔 𝘼𝘿𝙈𝙄𝙉 𝘾𝙊𝙉𝙏𝘼𝘾𝙏 𝘼𝘿𝙈𝙄𝙉.", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("❌ 𝘽𝘼𝙉 𝘽𝚈 𝘼𝘿𝙼𝙄𝙉 𝘾𝙊𝙉𝙏𝘼𝘾𝙏 𝘼𝘿𝙈𝙄𝙉.", reply_markup=ReplyKeyboardRemove())
         return
 
     if not is_bot_active() and user_id != ADMIN_ID:
@@ -274,7 +274,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, parse_mode="Markdown")
         return
 
-    if text == "👤 Profile":
+    if text == "👤 𝙼𝚈 𝙿𝚁𝙾𝙵𝙸𝙻𝙴":
         bot_bal = u_data.get("balance", 0.0)
         otp_cnt = u_data.get("otp_count", 0)
         exp_time = u_data.get("subscription_expiry")
@@ -298,29 +298,29 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("🌐 **𝙽𝙾𝚆 𝚂𝙴𝙻𝙴𝙲𝚃 𝙾𝙽𝙻𝚈 𝙷𝙾𝙽𝙶𝙺𝙾𝙽𝙶:**", reply_markup=ReplyKeyboardMarkup(country_kb, resize_keyboard=True))
         return
 
-    if text.startswith("Country:"):
+    if text == "COUNTRY: HK (HONG KONG)":
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "hk"}})
         await update.message.reply_text("✅ Country set: `HONG KONG (HK)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
 
-    if text == "📱 Set Service":
+    if text == "📱 𝚂𝙴𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴":
         service_kb = [
             [KeyboardButton("𝚂𝙴𝚁𝚅𝙸𝙲𝙴: WA (𝚆𝙷𝙰𝚃𝚂𝙰𝙿𝙿)")],
-            [KeyboardButton("🔙 Main Menu")]
+            [KeyboardButton("🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄")]
         ]
         await update.message.reply_text("📱 **𝙽𝙾𝚆 𝚂𝙴𝙻𝙴𝙲𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴 𝙾𝙽𝙻𝚈 𝙷𝙾𝙽𝙶𝙺𝙾𝙽𝙶:**", reply_markup=ReplyKeyboardMarkup(service_kb, resize_keyboard=True))
         return
 
-    if text.startswith("Service:"):
+    if text == "𝚂𝙴𝚁𝚅𝙸𝙲𝙴: WA (𝚆𝙷𝙰𝚃𝚂𝙰𝙿𝙿)":
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_service": "wa"}})
         await update.message.reply_text("✅ 𝚂𝙴𝚁𝚅𝙸𝙲𝙴 𝚂𝙴𝚃: `WHATSAPP (WA)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
 
-    if text == "🔙 Main Menu":
+    if text == "🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄":
         await start(update, context)
         return
 
-    if text == "🛒 𝙱𝚄𝚈 𝙽𝚄𝙼𝙱𝙴𝚁":
+    if text == "🛒 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁":
         country = "hk"
         service = "wa"
         bot_rate = get_rate(service)
@@ -596,7 +596,7 @@ async def sub_amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE
         f"⏳ **𝚅𝙰𝙻𝙸𝙳𝙸𝚃𝚈:** `3 Days`\n\n"
         f"👇 **𝚂𝙴𝙽𝙳 𝙱𝙺𝙰𝚂𝙷 𝙿𝙴𝚁𝚂𝙾𝙽𝙰𝙻 𝙽𝚄𝙼𝙱𝙴𝚁:**\n"
         f"📱 𝙱𝙺𝙰𝚂𝙷 𝙽𝚄𝙼𝙱𝙴𝚁: `{ADMIN_BKASH}`\n\n"
-        f"𝚃𝙰𝙺𝙰 𝙳𝙴𝙰 𝚂𝙴𝚂𝙴 𝚃𝚁𝚇 𝙸𝙳**TrxID**-𝚃𝙸 𝙻𝙸𝙺𝙷𝙴 𝙿𝙰𝚃𝙷𝙰𝙽:"
+        f"𝚃𝙰𝙺𝙰 𝙳𝙴𝙰 𝚂𝙴𝚂𝙴 𝚃𝚁𝚇 𝙸𝙳**TrxID**-𝚃𝙸 𝙻𝙸.HE 𝙿𝙰𝚃𝙷𝙰𝙽:"
     )
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=cancel_kb)
