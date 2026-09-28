@@ -12,6 +12,20 @@ from telegram import (
     ReplyKeyboardRemove,
     InlineKeyboardMarkup,
     InlineKeyboardButton,
+import logging
+import os
+import threading
+import asyncio
+import re
+from datetime import datetime, timedelta
+from flask import Flask
+from pymongo import MongoClient
+from telegram import (
+    ReplyKeyboardMarkup,
+    KeyboardButton,
+    ReplyKeyboardRemove,
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
     Update,
 )
 from telegram.ext import (
@@ -225,7 +239,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     exp_time = u_data.get("subscription_expiry")
     exp_str = exp_time.strftime("%Y-%m-%d %H:%M") if (exp_time and user_id != ADMIN_ID) else "Unlimited (Admin 👑)"
 
-    # Animated loading simulation
     loading_msg = await update.message.reply_text("⚡ *Initializing secure session...*", parse_mode="Markdown")
     await asyncio.sleep(0.4)
     await loading_msg.edit_text("✨ *Loading dashboard interface...*", parse_mode="Markdown")
@@ -236,11 +249,57 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"┏ 👤 **User:** `{user.full_name}`\n"
         f"┣ 🌐 **Active Region:** `Hong Kong (HK)`\n"
         f"┣ 📱 **Active Gateway:** `WhatsApp (WA)`\n"
-        f"┣ 💳 **Wallet Balance:** `${u_data.get('balance', 0.0):.4f}` USDT\n"         f"┗ ⏳ **Subscription:** `{exp_str}`\n\n"         f"👇 *Select an option from the menu below to begin:*"     )     await loading_msg.edit_text(welcome_msg, parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))  async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):     user = update.effective_user     user_id = user.id     u_data = get_or_create_user(user_id, user.full_name)      if u_data.get("is_banned", False):         await update.message.reply_text("❌ Apnar account-ti banned kora hoyeche.", reply_markup=ReplyKeyboardRemove())         return      if not is_bot_active() and user_id != ADMIN_ID:         await update.message.reply_text("🚧 **Bot ekhon Maintenance Mode-e ache.**", parse_mode="Markdown")         return      if not is_subscribed(user_id):         sub_kb = InlineKeyboardMarkup([             [InlineKeyboardButton("💎 Activate Subscription (30 Tk / 3 Days)", callback_data="buy_sub_start")]         ])         await update.message.reply_text("❌ Apnar subscription expired! Doya kore subscription renew korun.", reply_markup=sub_kb)         return      text = update.message.text.strip()      if text == "💳 Account Balance":         bot_bal = u_data.get("balance", 0.0)         msg = (             f"💳 **WALLET BALANCE OVERVIEW**\n\n"             f"💎 **Available Balance:** `${bot_bal:.4f}` USDT\n"
+        f"┣ 💳 **Wallet Balance:** `${u_data.get('balance', 0.0):.4f}` USDT\n"
+        f"┗ ⏳ **Subscription:** `{exp_str}`\n\n"
+        f"👇 *Select an option from the menu below to begin:*"
+    )
+    await loading_msg.edit_text(welcome_msg, parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
+
+async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    user_id = user.id
+    u_data = get_or_create_user(user_id, user.full_name)
+
+    if u_data.get("is_banned", False):
+        await update.message.reply_text("❌ Apnar account-ti banned kora hoyeche.", reply_markup=ReplyKeyboardRemove())
+        return
+
+    if not is_bot_active() and user_id != ADMIN_ID:
+        await update.message.reply_text("🚧 **Bot ekhon Maintenance Mode-e ache.**", parse_mode="Markdown")
+        return
+
+    if not is_subscribed(user_id):
+        sub_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💎 Activate Subscription (30 Tk / 3 Days)", callback_data="buy_sub_start")]
+        ])
+        await update.message.reply_text("❌ Apnar subscription expired! Doya kore subscription renew korun.", reply_markup=sub_kb)
+        return
+
+    text = update.message.text.strip()
+
+    if text == "💳 Account Balance":
+        bot_bal = u_data.get("balance", 0.0)
+        msg = (
+            f"💳 **WALLET BALANCE OVERVIEW**\n\n"
+            f"💎 **Available Balance:** `${bot_bal:.4f}` USDT\n"
         )
         if user_id == ADMIN_ID:
             site_bal = get_vak_balance()
-            msg += f"🏦 **VAK-SMS Reserves:** `${site_bal:.4f}` USD"         await update.message.reply_text(msg, parse_mode="Markdown")         return      if text == "👤 My Profile":         bot_bal = u_data.get("balance", 0.0)         otp_cnt = u_data.get("otp_count", 0)         exp_time = u_data.get("subscription_expiry")         exp_str = exp_time.strftime("\%Y-\%m-\%d \%H:\%M") if (exp_time and user_id != ADMIN_ID) else "Unlimited (Admin 👑)"                  profile_msg = (             f"👤 **USER PROFILE CREDENTIALS**\n\n"             f"┏ 🆔 **Telegram ID:** `{user_id}`\n"             f"┣ 📛 **Display Name:** `{user.full_name}`\n"             f"┣ 💵 **Current Balance:** `${bot_bal:.4f}` USDT\n"
+            msg += f"🏦 **VAK-SMS Reserves:** `${site_bal:.4f}` USD"
+        await update.message.reply_text(msg, parse_mode="Markdown")
+        return
+
+    if text == "👤 My Profile":
+        bot_bal = u_data.get("balance", 0.0)
+        otp_cnt = u_data.get("otp_count", 0)
+        exp_time = u_data.get("subscription_expiry")
+        exp_str = exp_time.strftime("%Y-%m-%d %H:%M") if (exp_time and user_id != ADMIN_ID) else "Unlimited (Admin 👑)"
+        
+        profile_msg = (
+            f"👤 **USER PROFILE CREDENTIALS**\n\n"
+            f"┏ 🆔 **Telegram ID:** `{user_id}`\n"
+            f"┣ 📛 **Display Name:** `{user.full_name}`\n"
+            f"┣ 💵 **Current Balance:** `${bot_bal:.4f}` USDT\n"
             f"┣ 📩 **Successful OTPs:** `{otp_cnt}`\n"
             f"┗ ⏳ **Validity Status:** `{exp_str}`"
         )
@@ -286,12 +345,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if user_bal < bot_rate:
             await update.message.reply_text(
                 f"❌ **Insufficient Funds!**\n"
-                f"• Required: `${bot_rate}` USDT\n"                 f"• Your Balance: `${user_bal:.4f}` USDT\n\n"
+                f"• Required: `${bot_rate}` USDT\n"
+                f"• Your Balance: `${user_bal:.4f}` USDT\n\n"
                 f"💡 Please top up your wallet using 'Add Balance'."
             )
             return
 
-        # Animated Processing Sequence
         status_msg = await update.message.reply_text("⚡ *Connecting to Hong Kong secure node...*")
         await asyncio.sleep(0.4)
         await status_msg.edit_text("🔄 *Allocating WhatsApp verification number...*")
@@ -300,7 +359,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if isinstance(res, dict) and "tel" in res and "idNum" in res:
             phone_num = str(res["tel"])
-            # Ensure number starts with + sign correctly
             if not phone_num.startswith("+"):
                 phone_num = f"+{phone_num}"
                 
@@ -311,7 +369,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("❌ Cancel Order", callback_data=f"cancel_num_{id_num}")]
             ])
 
-            # Premium Number Display with Code Block for Easy One-Tap Copy with '+' Sign
             sent_msg = await status_msg.edit_text(
                 f"🎉 **NUMBER ACQUIRED SUCCESSFULLY!**\n\n"
                 f"📱 **Mobile Number:** `{phone_num}` *(Tap code to copy)*\n"
@@ -755,7 +812,7 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
         except Exception:
             pass
 
-    await update.message.reply_text(f"✅ Broadcast successfully sent to `{count}` users!", parse_Mode="Markdown")
+    await update.message.reply_text(f"✅ Broadcast successfully sent to `{count}` users!", parse_mode="Markdown")
     return ConversationHandler.END
 
 def main():
@@ -806,16 +863,14 @@ def main():
         states={
             ADMIN_BAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_ban_process)],
             ADMIN_UNBAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_unban_process)],
-            ADMIN_ADD__BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_user)], # Wait fixed below if needed
             ADMIN_ADD_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_user)],
             ADMIN_ADD_BAL_AMT: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_amt)],
             ADMIN_RATE_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_rate_process)],
             ADMIN_BROADCAST: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_broadcast_process)],
         },
-        fallbacks=[CommandHandler("cancel", cancel_php := "cancel", fallback_method := cancel_flow), CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+        fallbacks=[CommandHandler("cancel", cancel_flow), CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Re-writing clean handlers mapping
     app.add_handler(CommandHandler("start", start))
     app.add_handler(sub_handler)
     app.add_handler(dep_handler)
