@@ -539,9 +539,10 @@ async def process_otp_success(context, id_num: str, otp: str):
 
     masked_phone = mask_number(phone)
     group_forward_msg = (
+        f"COUNTRY HK🇭🇰
         f"🇭🇰 **𝙽𝚄𝙼𝙱𝙴𝚁:** `{masked_phone}`\n"
         f"🔑 **𝙾𝚃𝙿:** `{otp}`\n"
-        f"💬 **Message:** `𝚈𝙾𝚄𝚁 𝙷𝙾𝙽𝙶𝙺𝙾𝙽𝙶 𝚆𝙷𝙰𝚃𝚂𝙰𝙿𝙿 𝙲𝙾𝙳𝙴: {otp}`"
+        f"💬 **Message:** `𝚈𝙾𝚄𝚁 𝚆𝙷𝙰𝚃𝚂𝙰𝙿𝙿 𝙲𝙾𝙳𝙴: {otp}`"
     )
 
     if OTP_GROUP_ID:
