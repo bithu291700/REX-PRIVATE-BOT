@@ -6,37 +6,8 @@ import re
 from datetime import datetime, timedelta
 from flask import Flask
 from pymongo import MongoClient
-from telegram import (
-    ReplyKeyboardMarkup,
-    KeyboardButton,
-    ReplyKeyboardRemove,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-import logging
-import os
-import threading
-import asyncio
-import re
-from datetime import datetime, timedelta
-from flask import Flask
-from pymongo import MongoClient
-from telegram import (
-    ReplyKeyboardMarkup,
-    KeyboardButton,
-    ReplyKeyboardRemove,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-    Update,
-)
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    ContextTypes,
-    MessageHandler,
-    ConversationHandler,
-    CallbackQueryHandler,
-    filters,
-)
+from telegram import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove, InlineKeyboardMarkup, InlineKeyboardButton, Update
+from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, ConversationHandler, CallbackQueryHandler, filters
 import requests
 
 # Logging Configuration
@@ -651,7 +622,7 @@ async def deposit_binance_selected(update: Update, context: ContextTypes.DEFAULT
     query = update.callback_query
     await query.answer()
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-    await query.message.reply_text("📥 **Enter USDT amount to deposit (Minimum: `1` USDT):**", reply_markup=cancel_kb)
+    await update.message.reply_text("📥 **Enter USDT amount to deposit (Minimum: `1` USDT):**", reply_markup=cancel_kb)
     return WAITING_AMOUNT
 
 async def deposit_amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
