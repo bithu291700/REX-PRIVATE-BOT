@@ -240,7 +240,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "╰━━━━━━━━━━━━━━━━━━╯\n\n"
             "👇 Nicher button-e click kore subscription kinun:"
         )
-        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=sub_kb)
         return
 
     exp_time = u_data.get("subscription_expiry")
@@ -257,8 +257,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"  💰 **Balance:** `${u_data.get('balance', 0.0):.4f}` USDT\n"
         f"  👑 **VIP Until:** `{exp_str}`\n"
         "╰━━━━━━━━━━━━━━━━━━╯\n\n"
-        "🚀 Nicher sleek menu theke apnar 
-proyojoniyo option select korun:"
+        "🚀 Nicher sleek menu theke apnar proyojoniyo option select korun:"
     )
     await update.message.reply_text(welcome_msg, parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
 
@@ -726,7 +725,7 @@ async def deposit_binance_selected(update: Update, context: ContextTypes.DEFAULT
     query = update.callback_query
     await query.answer()
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-    await query.message.reply_text("📥 **Koto USDT deposit korben ta likhun (Minimum: `1` USDT, jemon: `1`, `3.5`, `10`):**", reply_markup=cancel_kb)
+    await update.message.reply_text("📥 **Koto USDT deposit korben ta likhun (Minimum: `1` USDT, jemon: `1`, `3.5`, `10`):**", reply_markup=cancel_kb)
     return WAITING_AMOUNT
 
 async def deposit_amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
