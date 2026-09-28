@@ -292,7 +292,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈":
         country_kb = [
-            [KeyboardButton(𝙲𝙾𝚄𝙽𝚃𝚁𝚈: HK (𝙷𝙾𝙽𝙶 𝙺𝙾𝙽𝙶)")],
+            [KeyboardButton("COUNTRY: HK (HONG KONG)")],
             [KeyboardButton("🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄")]
         ]
         await update.message.reply_text("🌐 **𝙽𝙾𝚆 𝚂𝙴𝙻𝙴𝙲𝚃 𝙾𝙽𝙻𝚈 𝙷𝙾𝙽𝙶𝙺𝙾𝙽𝙶:**", reply_markup=ReplyKeyboardMarkup(country_kb, resize_keyboard=True))
@@ -321,9 +321,9 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "🛒 𝙱𝚄𝚈 𝙽𝚄𝙼𝙱𝙴𝚁":
-        𝙲𝙾𝚄𝙽𝚃𝚁𝚈 = "𝙷𝙺"
-        𝚂𝙴𝚁𝚅𝙸𝙲𝙴 = "𝚆𝙰"
-        bot_rate = get_rate(𝚂𝙴𝚁𝚅𝙸𝙲𝙴)
+        country = "hk"
+        service = "wa"
+        bot_rate = get_rate(service)
         user_bal = u_data.get("balance", 0.0)
 
         if user_bal < bot_rate:
@@ -338,7 +338,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if isinstance(res, dict) and "tel" in res and "idNum" in res:
             raw_phone = str(res["tel"])
-            # '+' sign add kora jate easily copy kora jay
             phone_num = f"+{raw_phone}" if not raw_phone.startswith("+") else raw_phone
             id_num = str(res["idNum"])
 
@@ -379,7 +378,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙺𝙴𝙽𝙰𝚁 𝚂𝙾𝙼𝚅𝙾𝙱 𝙷𝙾𝚈𝙽𝙸:** `{err_msg}`")
         return
 
-    if text == "⚙️ Admin Panel" and user_id == ADMIN_ID:
+    if text == "⚙️ 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻" and user_id == ADMIN_ID:
         await send_admin_panel(update, context)
         return
 
@@ -397,7 +396,6 @@ async def send_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif update.callback_query:
         await update.callback_query.message.reply_text("🛠 **Admin Control Panel:**", reply_markup=admin_kb, parse_mode="Markdown")
 
-# Callback Handler for General & Admin View/Toggle Actions
 async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -462,7 +460,6 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if id_num in active_orders:
             set_number_status(id_num, "bad")
             active_orders.pop(id_num, None)
-            # Cancel korle popup vanish/remove kore dewa ebong message update kora
             try:
                 await query.edit_message_text(
                     "❌ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙲𝙰𝙽𝙲𝙴𝙻𝙴𝙳(𝙱𝙰𝙻𝙰𝙽𝙲𝙴 𝙺𝙰𝚃𝙰 𝙷𝙾𝚈𝙽𝙸).**",
@@ -570,7 +567,6 @@ async def auto_check_otp(context: ContextTypes.DEFAULT_TYPE, user_id: int, id_nu
             await process_otp_success(context, id_num, otp)
             break
 
-# Subscription Conversation Flow
 async def sub_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -636,7 +632,6 @@ async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_
     await update.message.reply_text("✅ **Apnar subscription request admin-er kache pathano hoyeche!** Admin approve korlei bot active hoye jaabe.")
     return ConversationHandler.END
 
-# Deposit Conversation Flow
 async def deposit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     payment_kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("💛 Binance Pay", callback_data="pay_binance")],
@@ -717,7 +712,6 @@ async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Process batil kora hoyeche.")
     return ConversationHandler.END
 
-# Admin Actions Conversation Handlers
 async def admin_ban_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -818,7 +812,6 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
     await update.message.reply_text(f"✅ Total `{count}` jon user-er kache broadcast message pathano hoyeche!", parse_mode="Markdown")
     return ConversationHandler.END
 
-
 def main():
     threading.Thread(target=run_flask, daemon=True).start()
 
@@ -830,7 +823,6 @@ def main():
 
     app = Application.builder().token(BOT_TOKEN).build()
 
-    # Subscription Flow Handler
     sub_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(sub_start, pattern="^buy_sub_start$")],
         states={
@@ -847,9 +839,8 @@ def main():
         ]
     )
 
-    # Deposit Flow Handler
     dep_handler = ConversationHandler(
-        entry_points=[MessageHandler(filters.Regex("^💵 Deposit$"), deposit_start)],
+        entry_points=[MessageHandler(filters.Regex("^💵 𝙳𝙸𝙿𝙾𝚂𝙸𝚃$"), deposit_start)],
         states={
             WAITING_AMOUNT: [
                 CallbackQueryHandler(deposit_binance_selected, pattern="^pay_binance$"),
@@ -864,7 +855,6 @@ def main():
         ]
     )
 
-    # Admin Conversation Handler
     admin_handler = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(admin_ban_start, pattern="^admin_ban_start$"),
@@ -891,15 +881,11 @@ def main():
     app.add_handler(sub_handler)
     app.add_handler(dep_handler)
     app.add_handler(admin_handler)
-    
-    # GLOBAL CallbackQueryHandler for non-state inline buttons
     app.add_handler(CallbackQueryHandler(handle_callbacks))
-    
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_messages))
 
     print("Rex Private Bot Running...")
     app.run_polling(close_loop=False)
-
 
 if __name__ == "__main__":
     main()
