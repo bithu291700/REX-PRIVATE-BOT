@@ -204,7 +204,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u_data = get_or_create_user(user_id, user.full_name)
 
     if u_data.get("is_banned", False):
-        await update.message.reply_text("❌ 𝘽𝘼𝙉 𝘽𝚈 𝘼𝘿𝙼𝙄𝙉 𝘾𝙊𝙉𝙏𝘼𝘾𝙏 𝘼𝘿𝙈𝙄𝙉.", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("❌ 𝘽𝘼𝙉 𝘽𝚈 𝘼𝘿𝙈𝙄𝙉 𝘾𝙊𝙉𝙏𝘼𝘾𝙏 𝘼𝘿𝙈𝙄𝙉.", reply_markup=ReplyKeyboardRemove())
         return
 
     if not is_bot_active() and user_id != ADMIN_ID:
@@ -221,7 +221,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"ʙᴏᴛ ʙᴇʙᴏʜᴀʀ ᴋᴏʀᴛᴇ ᴄʜᴀɪʟᴇ sᴜʙsᴄʀɪᴘᴛɪᴏɴ ɴɪᴛᴇ ʜᴏʙᴇ.\n\n"
             f"📌 **𝗣𝗥𝗜𝗖𝗘:** `30 Tk`\n"
             f"⏳ **𝗩𝗔𝗟𝗜𝗗𝗜𝗧𝗬:** `3 Days`\n\n"
-            f"ɴɪᴄʜᴇʀ ᴍᴇɴᴜ ᴛʜᴇᴋᴇ ᴄʟɪᴄᴋ ᴋᴏʀᴇ sᴜʙsᴄʀɪᴘᴛɪᴏɴ ᴋɪɴᴜɴ:"
+            f"ɴɪᴄʜᴇʀ ᴍᴇɴᴜ ᴛʜᴇᴋᴇ ᴄʟɪᴄᴋ ᴋᴏʀᴇ sᴜʙsᴄʀ𝙸𝙿𝚃𝙸𝙾𝙽 ᴋɪɴᴜɴ:"
         )
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
         await update.message.reply_text("👇 **𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽:**", reply_markup=sub_kb)
