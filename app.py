@@ -2,6 +2,10 @@ import logging
 import os
 import threading
 import asyncio
+import logging
+import os
+import threading
+import asyncio
 import re
 from datetime import datetime, timedelta
 from flask import Flask
@@ -105,6 +109,8 @@ def get_rate(service_code: str = "wa"):
     doc = settings_col.find_one({"type": "rates"})
     if doc and service_code in doc.get("rates", {}):
         return float(doc["rates"][service_code])
+    if service_code == "tg":
+        return 0.087
     return 0.10
 
 def set_rate(service_code: str, rate: float):
@@ -141,7 +147,7 @@ def is_subscribed(user_id: int) -> bool:
 # Keyboards
 def get_main_keyboard(user_id):
     keyboard = [
-        [KeyboardButton("💳 𝙰𝙲𝙲𝙾𝚄𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴"), KeyboardButton("🛒 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁")],
+        [KeyboardButton("💳 𝙰𝙲𝙲𝙾𝚄𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴"), KeyboardButton("🛒 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁"), KeyboardButton("🛒 𝙱𝚈 𝚃𝙶")],
         [KeyboardButton("🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈"), KeyboardButton("📱 𝚂𝙴𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴")],
         [KeyboardButton("👤 𝙼𝚈 𝙿𝚁𝙾𝙵𝙸𝙻𝙴"), KeyboardButton("💵 𝙳𝙸𝙿𝙾𝚂𝙸𝚃")]
     ]
@@ -157,23 +163,23 @@ def set_number_status(id_num: str, status: str):
     except Exception as e:
         return {"error": str(e)}
 
-def buy_vak_number(service: str = "wa", country: str = "hk"):
-    url = f"https://vak-sms.com/api/getNumber/?apiKey={VAK_SMS_API_KEY}&service=wa&country=hk&maxPrice=0.07"
+def buy_vak_number(service: str = "wa", country: str = "hk", max_price: float = 0.07):
+    url = f"https://vak-sms.com/api/getNumber/?apiKey={VAK_SMS_API_KEY}&service={service}&country={country}&maxPrice={max_price}"
     try:
         res = requests.get(url).json()
         
         if isinstance(res, dict) and res.get("error") == "noNumber":
-            return {"error": "Stock Out for $0.075 Price Tier!"}
+            return {"error": f"Stock Out Telegram Number" if service in ["tg", "telegram"] else f"Stock Out for ${max_price} Price Tier!"}
             
         if isinstance(res, dict) and "tel" in res and "idNum" in res:
             assigned_price = res.get("price")
             if assigned_price is not None:
                 try:
                     price_val = float(assigned_price)
-                    if price_val > 0.07:
+                    if price_val > max_price:
                         id_num = str(res["idNum"])
                         set_number_status(id_num, "bad")
-                        return {"error": f"Stock Out! Price (${price_val}) exceeded $0.075 limit."}
+                        return {"error": "Stock Out Telegram Number" if service in ["tg", "telegram"] else f"Stock Out! Price (${price_val}) exceeded limit."}
                 except ValueError:
                     pass
 
@@ -204,7 +210,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u_data = get_or_create_user(user_id, user.full_name)
 
     if u_data.get("is_banned", False):
-        await update.message.reply_text("❌ 𝘽𝘼𝙉 𝘽𝚈 𝘼𝘿𝙈𝙄𝙉 𝘾𝙊𝙉𝙏𝘼𝘾𝙏 𝘼𝘿𝙈𝙄𝙉.", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("❌ 𝘽𝘼𝙉 𝘽𝙔 𝘼𝘿𝙈𝙄𝙉 𝘾𝙊𝙉𝙏𝘼𝘾𝙏 𝘼𝘿𝙈𝙄𝙉.", reply_markup=ReplyKeyboardRemove())
         return
 
     if not is_bot_active() and user_id != ADMIN_ID:
@@ -224,7 +230,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"ɴɪᴄʜᴇʀ ᴍᴇɴᴜ ᴛʜᴇᴋᴇ ᴄʟɪᴄᴋ ᴋᴏʀᴇ sᴜʙsᴄ𝚁𝙸𝙿𝚃𝙸𝙾𝙽 ᴋɪɴᴜɴ:"
         )
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
-        await update.message.reply_text("👇 **𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽:**", reply_markup=sub_kb)
+        await update.message.reply_text("👇 **𝙱𝚄𝙸 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽:**", reply_markup=sub_kb)
         return
 
     exp_time = u_data.get("subscription_expiry")
@@ -233,11 +239,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msg = (
         f"👋 **𝚆𝙴𝙻𝙲𝙾𝙼𝙴 𝚁𝙴𝚇 𝙿𝚁𝙸𝚅𝙰𝚃𝙴 𝙱𝙾𝚃!**\n\n"
         f"⚙️ **𝚁𝙴𝙲𝙴𝙽𝚃 𝚂𝙴𝚃𝚄𝙿:**\n"
-        f"• 𝙲𝙾𝚄𝙽𝚃𝚁𝚈: `𝙷𝙾𝙽𝙶 𝙺𝙾𝙽𝙶 (𝙷𝙺)`\n"
-        f"• Service: `𝚆𝙷𝙰𝚃𝚂𝙰𝙿𝙿 (𝚆𝙰)`\n"
+        f"• 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂: `𝙷𝙾𝙽𝙶 𝙺𝙾𝙽𝙶 (𝙷𝙺)` / `𝙲𝙷𝙸𝙻𝙴 (𝙲𝙻)`\n"
+        f"• Services: `𝚆𝙷𝙰𝚃𝚂𝙰𝙿𝙿 (𝚆𝙰)` / `𝚃𝙴𝙻𝙴𝙶𝚁𝙰𝙼 (𝚃𝙶)`\n"
         f"• 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${u_data.get('balance', 0.0):.4f} USDT`\n"
         f"• 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚅𝙰𝙻𝙸𝙳 𝚃𝙸𝙻𝙻: `{exp_str}`\n\n"
-        f"𝙺𝙰𝙹 𝙺𝙾𝚁𝚃𝙴 𝙽𝙸𝙲𝙷𝙴 𝙳𝙴𝙰 𝙼𝙴𝙽𝚄 𝚄𝚂𝙴 𝙺𝙾𝚁𝙴𝙽:"
+        f"𝙺𝙰𝙹 𝙺𝙾𝚁𝚃𝙴 𝙽𝙸𝙲𝙷𝙴 𝙳𝙴𝙰 𝙼𝙴𝙽𝚄 𝚄𝚂𝙴 𝙺𝙾𝚁𝚄𝙽:"
     )
     await update.message.reply_text(welcome_msg, parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
 
@@ -252,15 +258,15 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not is_bot_active() and user_id != ADMIN_ID:
-        await update.message.reply_text("🚧 **𝙱𝙾𝚃 𝚄𝙽𝙳𝙴𝚁 𝙼𝙰𝙸𝙽𝚃𝙰𝙸𝙽𝚂 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽.** 𝚃𝚁𝚈 𝚂𝙾𝙼𝙴 𝚃𝙸𝙼𝙴 𝙰𝙶𝙰𝙸𝙽.", parse_mode="Markdown")
+        await update.message.reply_text("🚧 **𝙱𝙾𝚃 𝚄𝙽𝙳𝙴𝚁 𝙼𝙰𝙸𝙽𝚃𝙰𝙸𝙽𝚂 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽.** 𝚃𝚁𝙸 𝚂𝙾𝙼𝙴 𝚃𝙸𝙼𝙴 𝙰𝙶𝙰𝙸𝙽.", parse_mode="Markdown")
         return
 
     if not is_subscribed(user_id):
         sub_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💳 𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽(30 Tk / 3 Days)", callback_data="buy_sub_start")]
+            [InlineKeyboardButton("💳 𝙱𝚄𝙸 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽(30 Tk / 3 Days)", callback_data="buy_sub_start")]
         ])
-        await update.message.reply_text("❌ 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝙴𝚇𝙿𝙸𝚁𝙴𝚂! 𝙱𝚄𝚈 𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽.", reply_markup=ReplyKeyboardRemove())
-        await update.message.reply_text("👇 **𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽:**", reply_markup=sub_kb)
+        await update.message.reply_text("❌ 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝙴𝚇𝙿𝙸𝚁𝙴𝚂! 𝙱𝚄𝙸 𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽.", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("👇 **𝙱𝚄𝙸 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽:**", reply_markup=sub_kb)
         return
 
     text = update.message.text.strip()
@@ -274,7 +280,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, parse_mode="Markdown")
         return
 
-    if text == "👤 𝙼𝚈 𝙿𝚁𝙾𝙵𝙸𝙻𝙴":
+    if text == "👤 𝙼𝙸 𝙿𝚁𝙾𝙵𝙸𝙻𝙴":
         bot_bal = u_data.get("balance", 0.0)
         otp_cnt = u_data.get("otp_count", 0)
         exp_time = u_data.get("subscription_expiry")
@@ -320,7 +326,8 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await start(update, context)
         return
 
-    if text == "🛒 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁":
+    # Original HongKong WhatsApp Purchase Logic
+    if text == "🛒 𝙱𝙸 𝙽𝚄𝙼𝙱𝙴𝚁":
         country = "hk"
         service = "wa"
         bot_rate = get_rate(service)
@@ -328,13 +335,13 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if user_bal < bot_rate:
             await update.message.reply_text(
-                f"❌ 𝚂𝙾𝚁𝚁𝚈 𝙳𝙾 𝙽𝙾𝚃𝙴 𝙰𝙽𝙰𝙵 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${bot_rate}` USDT, 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${user_bal:.4f}` USDT.\n𝙳𝙸𝙿𝙾𝚂𝙸𝚃 𝙺𝙾𝚁𝚄𝙽."
+                f"❌ 𝚂𝙾𝚁𝚁𝙸 𝙳𝙾 𝙽𝙾𝚃𝙴 𝙰𝙽𝙰𝙵 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${bot_rate}` USDT, 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${user_bal:.4f}` USDT.\n𝙳𝙸𝙿𝙾𝚂𝙸𝚃 𝙺𝙾𝚁𝚄𝙽."
             )
             return
 
-        status_msg = await update.message.reply_text("⏳ `𝙷𝙺` 𝙲𝙾𝚄𝙽𝚃𝚁𝚈 𝙱𝚄𝚈𝙸𝙽𝙶 𝙽𝚄𝙼𝙱𝙴𝚁 𝚆𝙰𝙸𝚃 𝙵𝙴𝚆 𝚂𝙴𝙲𝙾𝙽𝙳𝚂...")
+        status_msg = await update.message.reply_text("⏳ `𝙷𝙺` 𝙲𝙾𝚄𝙽𝚃𝚁𝙸 𝙱𝚄𝙸𝙸𝙽𝙶 𝙽𝚄𝙼𝙱𝙴𝚁 𝚆𝙰𝙸𝚃 𝙵𝙴𝚆 𝚂𝙴𝙲𝙾𝙽𝙳𝚂...")
 
-        res = buy_vak_number(service, country)
+        res = buy_vak_number(service, country, max_price=0.07)
 
         if isinstance(res, dict) and "tel" in res and "idNum" in res:
             raw_phone = str(res["tel"])
@@ -347,7 +354,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
 
             sent_msg = await update.message.reply_text(
-                f"✅ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙱𝚄𝚈 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙻𝚈!**\n\n"
+                f"✅ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙱𝚄𝙸 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙻𝙸!**\n\n"
                 f"📱 **Number:** `<code>{phone_num}</code>`\n"
                 f"🆔 **ID Num:** `{id_num}`\n"
                 f"🌍 **Country:** `HK`\n"
@@ -375,7 +382,66 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             asyncio.create_task(auto_check_otp(context, user_id, id_num, str(phone_num), sent_msg.message_id))
         else:
             err_msg = res.get("error", "𝚂𝚃𝙾𝙲𝙺 𝙾𝚄𝚃 𝚆𝙰𝙸𝚃") if isinstance(res, dict) else "Error"
-            await update.message.reply_text(f"❌ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙺𝙴𝙽𝙰𝚁 𝚂𝙾𝙼𝚅𝙾𝙱 𝙷𝙾𝚈𝙽𝙸:** `{err_msg}`")
+            await update.message.reply_text(f"❌ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙺𝙴𝙽𝙰𝚁 𝚂𝙾𝙼𝚅𝙾𝙱 𝙷𝙾𝙸𝙽𝙸:** `{err_msg}`")
+        return
+
+    # NEW Chile Telegram Purchase Logic
+    if text == "🛒 𝙱𝙸 𝚃𝙶":
+        country = "cl"
+        service = "tg"
+        bot_rate = get_rate("tg")
+        user_bal = u_data.get("balance", 0.0)
+
+        if user_bal < bot_rate:
+            await update.message.reply_text(
+                f"❌ 𝚂𝙾𝚁𝚁𝙸 𝙳𝙾 𝙽𝙾𝚃𝙴 𝙰𝙽𝙰𝙵 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${bot_rate}` USDT, 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${user_bal:.4f}` USDT.\n𝙳𝙸𝙿𝙾𝚂𝙸𝚃 𝙺𝙾𝚁𝚄𝙽."
+            )
+            return
+
+        status_msg = await update.message.reply_text("⏳ `Chile` 𝙲𝙾𝚄𝙽𝚃𝚁𝙸 𝚃𝙴𝙻𝙴𝙶𝚁𝙰𝙼 𝙽𝚄𝙼𝙱𝙴𝚁 𝙱𝚄𝙸𝙸𝙽𝙶 𝚆𝙰𝙸𝚃...")
+
+        # Strict limit 0.087
+        res = buy_vak_number(service="tg", country="cl", max_price=0.087)
+
+        if isinstance(res, dict) and "tel" in res and "idNum" in res:
+            raw_phone = str(res["tel"])
+            phone_num = f"+{raw_phone}" if not raw_phone.startswith("+") else raw_phone
+            id_num = str(res["idNum"])
+
+            inline_kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("📩 Check Active OTP", callback_data=f"check_otp_{id_num}")],
+                [InlineKeyboardButton("❌ Cancel Number", callback_data=f"cancel_num_{id_num}")]
+            ])
+
+            sent_msg = await update.message.reply_text(
+                f"✅ **𝚃𝙴𝙻𝙴𝙶𝚁𝙰𝙼 𝙽𝚄𝙼𝙱𝙴𝚁 𝙱𝚄𝙸 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙻𝙸!**\n\n"
+                f"📱 **Number:** `<code>{phone_num}</code>`\n"
+                f"🆔 **ID Num:** `{id_num}`\n"
+                f"🌍 **Country:** `Chile (CL)`\n"
+                f"💬 **Service:** `Telegram (TG)`\n"
+                f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝘾𝙀 𝙆𝘼𝙏𝘽𝙀)*\n\n"
+                f"⏳ *𝙾𝚃𝙿 𝙿𝙾𝚆𝙴𝚁 𝙹𝙾𝙽𝙽𝙾 𝙾𝙿𝙴𝙺𝙺𝙷𝙰 𝙺𝙾𝚁𝚄𝙽...*",
+                parse_mode="HTML",
+                reply_markup=inline_kb
+            )
+
+            active_orders[id_num] = {
+                "user_id": user_id,
+                "service": service,
+                "country": country,
+                "cost": bot_rate,
+                "phone": phone_num,
+                "msg_id": sent_msg.message_id
+            }
+
+            try:
+                await status_msg.delete()
+            except Exception:
+                pass
+
+            asyncio.create_task(auto_check_otp(context, user_id, id_num, str(phone_num), sent_msg.message_id))
+        else:
+            await update.message.reply_text("❌ Stock Out Telegram Number")
         return
 
     if text == "⚙️ 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻" and user_id == ADMIN_ID:
@@ -455,7 +521,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             otp = res["smsCode"]
             await process_otp_success(context, id_num, otp)
         else:
-            await query.message.reply_text("⏳ 𝙰𝙺𝙷𝙾𝙽𝙾 𝙾𝚃𝙿 𝙰𝚂𝙴𝙽𝙸, 𝙰𝙺𝚃𝚄 𝙿𝙾𝚁𝙴 𝙰𝙱𝙰𝚁 𝚃𝚁𝚈 𝙺𝙾𝚁𝚄𝙽.")
+            await query.message.reply_text("⏳ 𝙰𝙺𝙷𝙾𝙽𝙾 𝙾𝚃𝙿 𝙰𝚂𝙴𝙽𝙸, 𝙰𝙺𝚃𝚄 𝙿𝙾𝚁𝙴 𝙰𝙱𝙰𝚁 𝚃𝚁𝙸 𝙺𝙾𝚁𝚄𝙽.")
 
     elif data.startswith("cancel_num_"):
         id_num = data.split("_")[2]
@@ -464,13 +530,13 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             active_orders.pop(id_num, None)
             try:
                 await query.edit_message_text(
-                    "❌ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙲𝙰𝙽𝙲𝙴𝙻𝙴𝙳(𝙱𝙰𝙻𝙰𝙽𝙲𝙴 𝙺𝙰𝚃𝙰 𝙷𝙾𝚈𝙽𝙸).**",
+                    "❌ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙲𝙰𝙽𝙲𝙴𝙻𝙴𝙳(𝙱𝙰𝙻𝙰𝙽𝙲𝙴 𝙺𝙰𝚃𝙰 𝙷𝙾𝙸𝙽𝙸).**",
                     reply_markup=None
                 )
             except Exception:
                 await query.message.delete()
         else:
-            await query.message.reply_text("❌ 𝙳𝙾𝙽'𝚃 𝙰𝙲𝚃𝙸𝚅𝙴 𝙾𝚁𝙳𝙴𝚁 𝙽𝙰𝙷𝙾𝙻𝙴 𝙾𝚃𝙿 𝙰𝙻𝚁𝙴𝙰𝙳𝚈 𝚁𝙴𝙲𝙴𝙸𝚅𝙴𝙳 𝙺𝙾𝚁𝙰 𝙷𝙾𝙸𝙲𝙷𝙴.")
+            await query.message.reply_text("❌ 𝙳𝙾𝙽'𝚃 𝙰𝙲𝚃𝙸𝚅𝙴 𝙾𝚁𝙳𝙴𝚁 𝙽𝙰𝙷𝙾𝙻𝙴 𝙾𝚃𝙿 𝙰𝙻𝚁𝙴𝙰𝙳𝙸 𝚁𝙴𝙲𝙴𝙸𝚅𝙴𝙳 𝙺𝙾𝚁𝙰 𝙷𝙾𝙸𝙲𝙷𝙴.")
 
     elif data.startswith("approve_dep_"):
         parts = data.split("_")
@@ -511,6 +577,8 @@ async def process_otp_success(context, id_num: str, otp: str):
     cost = order_info["cost"]
     phone = order_info["phone"]
     msg_id = order_info["msg_id"]
+    service = order_info.get("service", "wa")
+    country = order_info.get("country", "hk")
 
     users_col.update_one(
         {"user_id": uid},
@@ -522,7 +590,7 @@ async def process_otp_success(context, id_num: str, otp: str):
     set_number_status(id_num, "end")
 
     success_text = (
-        f"✅ **𝙾𝚃𝙿 𝚁𝙴𝙲𝙴𝙸𝚅𝙴 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝚈!**\n\n"
+        f"✅ **𝙾𝚃𝙿 𝚁𝙴𝙲𝙴𝙸𝚅𝙴 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙸!**\n\n"
         f"📱 **𝙽𝚄𝙼𝙱𝙴𝚁:** `<code>{phone}</code>`\n"
         f"🔑 **𝙾𝚃𝙿 𝙲𝙾𝙳𝙴:** `<code>{otp}</code>`\n\n"
         f"💵 **𝙱𝙰𝙻𝙰𝙽𝙲𝙴 𝙳𝙴𝙳𝙸𝙲𝙰𝚃𝙴𝙳:** `${cost}` USDT\n"
@@ -540,10 +608,13 @@ async def process_otp_success(context, id_num: str, otp: str):
         await context.bot.send_message(chat_id=uid, text=success_text, parse_mode="HTML")
 
     masked_phone = mask_number(phone)
+    flag = "🇨🇱" if country == "cl" else "🇭🇰"
+    serv_title = "TELEGRAM" if service in ["tg", "telegram"] else "WHATSAPP"
+    
     group_forward_msg = (
-        f"🇭🇰 **𝙽𝚄𝙼𝙱𝙴𝚁:** `{masked_phone}`\n"
+        f"{flag} **𝙽𝚄𝙼𝙱𝙴𝚁:** `{masked_phone}`\n"
         f"🔑 **𝙾𝚃𝙿:** `{otp}`\n"
-        f"💬 **Message:** `𝚈𝙾𝚄𝚁 𝚆𝙷𝙰𝚃𝚂𝙰𝙿𝙿 𝙲𝙾𝙳𝙴: {otp}`"
+        f"💬 **Message:** `𝚈𝙾𝚄𝚁 {serv_title} 𝙲𝙾𝙳𝙴: {otp}`"
     )
 
     if OTP_GROUP_ID:
@@ -576,7 +647,7 @@ async def sub_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🌸 𝙱𝙺𝙰𝚂𝙷", callback_data="pay_bkash_sub")],
         [InlineKeyboardButton("❌ 𝙲𝙰𝙽𝙲𝙴𝙻", callback_data="cancel_flow_cb")]
     ])
-    await query.message.reply_text("💳 **𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝙼𝙴𝚃𝙷𝙾𝙳 𝚂𝙴𝙻𝙴𝙲𝚃 𝙺𝙾𝚁𝚄𝙽:**", reply_markup=bkash_kb)
+    await query.message.reply_text("💳 **𝙿𝙰𝙸𝙼𝙴𝙽𝚃 𝙼𝙴𝚃𝙷𝙾𝙳 𝚂𝙴𝙻𝙴𝙲𝚃 𝙺𝙾𝚁𝚄𝙽:**", reply_markup=bkash_kb)
     return SUB_AMOUNT
 
 async def sub_bkash_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -595,7 +666,7 @@ async def sub_amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     msg = (
         f"💰 **𝙰𝙼𝙾𝚄𝙽𝚃:** `30` Tk\n"
-        f"⏳ **𝚅𝙰𝙻𝙸𝙳𝙸𝚃𝚈:** `3 Days`\n\n"
+        f"⏳ **𝚅𝙰𝙻𝙸𝙳𝙸𝚃𝙸:** `3 Days`\n\n"
         f"👇 **𝚂𝙴𝙽𝙳 𝙱𝙺𝙰𝚂𝙷 𝙿𝙴𝚁𝚂𝙾𝙽𝙰𝙻 𝙽𝚄𝙼𝙱𝙴𝚁:**\n"
         f"📱 𝙱𝙺𝙰𝚂𝙷 𝙽𝚄𝙼𝙱𝙴𝚁: `{ADMIN_BKASH}`\n\n"
         f"𝚃𝙰𝙺𝙰 𝙳𝙴𝙰 𝚂𝙴𝚂𝙴 𝚃𝚁𝚇 𝙸𝙳**TrxID**-𝚃𝙸 𝙻𝙸.HE 𝙿𝙰𝚃𝙷𝙰𝙽:"
@@ -608,7 +679,7 @@ async def sub_txid_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     txid = update.message.text.strip()
     context.user_data["sub_txid"] = txid
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-    await update.message.reply_text("📸 **𝙱𝙺𝙰𝚂𝙷 𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝚂𝙲𝚁𝙴𝙴𝙽𝚂𝙷𝙾𝚃(Photo) 𝙳𝙸𝙽:**", reply_markup=cancel_kb)
+    await update.message.reply_text("📸 **𝙱𝙺𝙰𝚂𝙷 𝙿𝙰𝙸𝙼𝙴𝙽𝚃 𝚂𝙲𝚁𝙴𝙴𝙽𝚂𝙷𝙾𝚃(Photo) 𝙳𝙸𝙽:**", reply_markup=cancel_kb)
     return SUB_SCREENSHOT
 
 async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -624,7 +695,7 @@ async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_
     ])
 
     caption = (
-        f"🔔 **𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚁𝙴𝙀𝚄𝙴𝚂𝚃!**\n\n"
+        f"🔔 **𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚁𝙴𝙴𝚄𝙴𝚂𝚃!**\n\n"
         f"👤 **𝚄𝚂𝙴𝚁:** {user.full_name} (`{user.id}`)\n"
         f"💰 **𝙰𝙼𝙾𝚄𝙽𝚃:** `30 Tk`\n"
         f"🧾 **𝚃𝚁𝚇𝙸𝙳:** `{txid}`"
