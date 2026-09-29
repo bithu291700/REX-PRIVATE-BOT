@@ -99,7 +99,7 @@ def get_or_create_user(user_id: int, full_name: str = "User"):
             "full_name": full_name,
             "balance": 0.0,
             "otp_count": 0,
-            "selected_country": "cl",  # Default Chile (cl) or HK
+            "selected_country": "cl",  # Default Chile (cl)
             "selected_service": "tg",  # Default Telegram (tg)
             "is_banned": False,
             "subscription_expiry": None
@@ -302,10 +302,12 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(profile_msg, parse_mode="Markdown")
         return
 
-    if text == "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝙸":
+    # FIXED: Corrected spelling matching with main keyboard (COUNTRY)
+    if text == "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈":
         country_kb = [
-            [KeyboardButton("COUNTRY: CHILE (CL)")],
-            [KeyboardButton("COUNTRY: HK (HONG KONG)")],
+            [KeyboardButton("COUNTRY: CHILE (CL)"), KeyboardButton("COUNTRY: HK (HONG KONG)")],
+            [KeyboardButton("COUNTRY: ID (INDONESIA)"), KeyboardButton("COUNTRY: RU (RUSSIA)")],
+            [KeyboardButton("COUNTRY: VN (VIETNAM)")],
             [KeyboardButton("🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄")]
         ]
         await update.message.reply_text("🌐 **SELECT YOUR COUNTRY:**", reply_markup=ReplyKeyboardMarkup(country_kb, resize_keyboard=True))
@@ -319,6 +321,21 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "COUNTRY: HK (HONG KONG)":
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "hk"}})
         await update.message.reply_text("✅ Country set: `HONG KONG (HK)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
+        return
+
+    if text == "COUNTRY: ID (INDONESIA)":
+        users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "id"}})
+        await update.message.reply_text("✅ Country set: `INDONESIA (ID)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
+        return
+
+    if text == "COUNTRY: RU (RUSSIA)":
+        users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "ru"}})
+        await update.message.reply_text("✅ Country set: `RUSSIA (RU)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
+        return
+
+    if text == "COUNTRY: VN (VIETNAM)":
+        users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "vn"}})
+        await update.message.reply_text("✅ Country set: `VIETNAM (VN)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
 
     if text == "📱 𝚂𝙴𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴":
@@ -348,8 +365,13 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         country = u_data.get("selected_country", "cl")
         service = u_data.get("selected_service", "tg")
         
-        # Determine Max Purchase Limit (Lock at 0.087 for Chile/TG)
-        max_price_limit = 0.087 if country == "cl" else 0.075
+        # Determine Max Purchase Limit based on country
+        if country == "cl":
+            max_price_limit = 0.087
+        elif country == "hk":
+            max_price_limit = 0.075
+        else:
+            max_price_limit = 0.20  # Default limit for other countries
         
         bot_rate = get_rate(service)
         user_bal = u_data.get("balance", 0.0)
@@ -417,7 +439,7 @@ async def send_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
         [InlineKeyboardButton("💵 SET WA PRICE", callback_data="admin_rate_wa_start"), InlineKeyboardButton("💵 SET TG PRICE", callback_data="admin_rate_tg_start")],
         [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝗖𝗘", callback_data="admin_zero_bal_start")],
-        [InlineKeyboardButton("📢 𝗕𝗥𝗢𝗗𝗖𝗔𝗦𝗧 𝗔𝗟𝗟", callback_data="admin_broadcast_start")],
+        [InlineKeyboardButton("📢 𝗕𝗥𝗢𝗗𝙲𝗔𝗦𝗧 𝗔𝗟𝗟", callback_data="admin_broadcast_start")],
         [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
     ])
     if update.message:
@@ -467,7 +489,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
             [InlineKeyboardButton("💵 SET WA PRICE", callback_data="admin_rate_wa_start"), InlineKeyboardButton("💵 SET TG PRICE", callback_data="admin_rate_tg_start")],
             [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝗖𝗘", callback_data="admin_zero_bal_start")],
-            [InlineKeyboardButton("📢 𝗕𝗥𝗢𝗗𝗖𝗔𝚂𝗧 𝗔𝗟𝗟", callback_data="admin_broadcast_start")],
+            [InlineKeyboardButton("📢 𝗕𝗥𝗢𝗗𝙲𝗔𝗦𝗧 𝗔𝗟𝗟", callback_data="admin_broadcast_start")],
             [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
         ])
         try:
@@ -540,6 +562,7 @@ async def process_otp_success(context, id_num: str, otp: str):
     phone = order_info["phone"]
     msg_id = order_info["msg_id"]
     service_type = order_info.get("service", "tg").upper()
+    country_code = order_info.get("country", "cl").upper()
 
     users_col.update_one(
         {"user_id": uid},
@@ -570,7 +593,8 @@ async def process_otp_success(context, id_num: str, otp: str):
 
     masked_phone = mask_number(phone)
     group_forward_msg = (
-        f"🇨🇱 **𝙽𝚄𝙼𝙱𝙴𝚁:** `{masked_phone}`\n"
+        f"🌐 **COUNTRY:** `{country_code}`\n"
+        f"📱 **𝙽𝚄𝙼𝙱𝙴𝚁:** `{masked_phone}`\n"
         f"🔑 **𝙾𝚃𝙿:** `{otp}`\n"
         f"💬 **Message:** `YOUR {service_type} CODE: {otp}`"
     )
@@ -619,7 +643,7 @@ async def sub_amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE
     text = update.message.text.strip()
     if text != "30":
         cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-        await update.message.reply_text("❌ 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝙵𝙴𝙴 𝚂𝚄𝙳𝙷𝚄**30** Tk. 𝙴𝙽𝚃𝙴𝚁 `30` likhun.", reply_markup=cancel_kb)
+        await update.message.reply_text("❌ 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝙵𝙴𝙴 𝚂𝚄𝙳𝙷𝚄 **30** Tk. 𝙴𝙽𝚃𝙴𝚁 `30` likhun.", reply_markup=cancel_kb)
         return SUB_AMOUNT
 
     msg = (
@@ -627,7 +651,7 @@ async def sub_amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE
         f"⏳ **𝚅𝙰𝙻𝙸𝙳𝙸𝚃𝙸:** `3 Days`\n\n"
         f"👇 **𝚂𝙴𝙽𝙳 𝙱𝙺𝙰𝚂𝙷 𝙿𝙴𝚁𝚂𝙾𝙽𝙰𝙻 𝙽𝚄𝙼𝙱𝙴𝚁:**\n"
         f"📱 𝙱𝙺𝙰𝚂𝙷 𝙽𝚄𝙼𝙱𝙴𝚁: `{ADMIN_BKASH}`\n\n"
-        f"𝚃𝙰𝙺𝙰 𝙳𝙴𝙰 𝚂𝙴𝚂𝙴 𝚃𝚁𝚇 𝙸𝙳**TrxID**-𝚃𝙸 𝙻𝙸.HE 𝙿𝙰𝚃𝙷𝙰𝙽:"
+        f"𝚃𝙰𝙺𝙰 𝙳𝙴𝙰 𝚂𝙴𝚂𝙴 𝚃𝚁𝚇 𝙸𝙳 **TrxID**-𝚃𝙸 𝙻𝙸𝙺𝙷𝙴 𝙿𝙰𝚃𝙷𝙰𝙽:"
     )
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
     await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=cancel_kb)
@@ -653,7 +677,7 @@ async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_
     ])
 
     caption = (
-        f"🔔 **𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚁𝙴𝙴𝚄𝙴𝚂𝚃!**\n\n"
+        f"🔔 **𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚁𝙴𝚀𝚄𝙴𝚂𝚃!**\n\n"
         f"👤 **𝚄𝚂𝙴𝚁:** {user.full_name} (`{user.id}`)\n"
         f"💰 **𝙰𝙼𝙾𝚄𝙽𝚃:** `30 Tk`\n"
         f"🧾 **𝚃𝚁𝚇𝙸𝙳:** `{txid}`"
@@ -847,7 +871,7 @@ async def admin_rate_wa_process(update: Update, context: ContextTypes.DEFAULT_TY
 async def admin_rate_tg_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("💵 **Telegram (TG)-er notun Bot Rate USDT-te likhun (jemon: `0.087` ba `0.12`):**")
+    await query.message.reply_text("💵 **Telegram (TG)-er notun Bot Rate USDT-te likhun (jemon: `0.10` ba `0.12`):**")
     return ADMIN_RATE_TG_SET
 
 async def admin_rate_tg_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -857,44 +881,19 @@ async def admin_rate_tg_process(update: Update, context: ContextTypes.DEFAULT_TY
         set_rate("tg", rate)
         await update.message.reply_text(f"✅ Telegram Bot Rate update kora hoyeche: `${rate}` USDT", parse_mode="Markdown")
     except ValueError:
-        await update.message.reply_text("❌ Invalid Rate Format! (Sothik number likhun, jemon: `0.087`).")
+        await update.message.reply_text("❌ Invalid Rate Format! (Sothik number likhun, jemon: `0.10`).")
     return ConversationHandler.END
 
-async def admin_broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.message.reply_text("📢 **Sob user-der jonno Broadcast Message-ti likhe pathan:**")
-    return ADMIN_BROADCAST
-
-async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    msg_text = update.message.text.strip()
-    users = list(users_col.find())
-    
-    count = 0
-    for u in users:
-        uid = u.get("user_id")
-        try:
-            await context.bot.send_message(chat_id=uid, text=f"📢 **Notice:**\n\n{msg_text}", parse_mode="Markdown")
-            count += 1
-            await asyncio.sleep(0.05)
-        except Exception:
-            pass
-
-    await update.message.reply_text(f"✅ Total `{count}` jon user-er kache broadcast message pathano hoyeche!", parse_mode="Markdown")
-    return ConversationHandler.END
-
+# Main Application Entry Point
 def main():
+    # Start Flask Web Server Thread
     threading.Thread(target=run_flask, daemon=True).start()
 
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
+    # Build Application
     app = Application.builder().token(BOT_TOKEN).build()
 
-    sub_handler = ConversationHandler(
+    # Subscription Conversation Handler
+    sub_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(sub_start, pattern="^buy_sub_start$")],
         states={
             SUB_AMOUNT: [
@@ -904,13 +903,11 @@ def main():
             SUB_TXID: [MessageHandler(filters.TEXT & ~filters.COMMAND, sub_txid_received)],
             SUB_SCREENSHOT: [MessageHandler(filters.PHOTO, sub_screenshot_received)]
         },
-        fallbacks=[
-            CommandHandler("cancel", cancel_flow),
-            CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")
-        ]
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    dep_handler = ConversationHandler(
+    # Deposit Conversation Handler
+    deposit_conv = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex("^💵 𝙳𝙸𝙿𝙾𝚂𝙸𝚃$"), deposit_start)],
         states={
             WAITING_AMOUNT: [
@@ -920,47 +917,68 @@ def main():
             WAITING_TXID: [MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_txid_received)],
             WAITING_SCREENSHOT: [MessageHandler(filters.PHOTO, deposit_screenshot_received)]
         },
-        fallbacks=[
-            CommandHandler("cancel", cancel_flow),
-            CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")
-        ]
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    admin_handler = ConversationHandler(
-        entry_points=[
-            CallbackQueryHandler(admin_ban_start, pattern="^admin_ban_start$"),
-            CallbackQueryHandler(admin_unban_start, pattern="^admin_unban_start$"),
-            CallbackQueryHandler(admin_add_bal_start, pattern="^admin_add_bal_start$"),
-            CallbackQueryHandler(admin_zero_bal_start, pattern="^admin_zero_bal_start$"),
-            CallbackQueryHandler(admin_rate_wa_start, pattern="^admin_rate_wa_start$"),
-            CallbackQueryHandler(admin_rate_tg_start, pattern="^admin_rate_tg_start$"),
-            CallbackQueryHandler(admin_broadcast_start, pattern="^admin_broadcast_start$"),
-        ],
+    # Admin Ban Conversation
+    admin_ban_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(admin_ban_start, pattern="^admin_ban_start$")],
+        states={ADMIN_BAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_ban_process)]},
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+    )
+
+    # Admin Unban Conversation
+    admin_unban_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(admin_unban_start, pattern="^admin_unban_start$")],
+        states={ADMIN_UNBAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_unban_process)]},
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+    )
+
+    # Admin Add Balance Conversation
+    admin_add_bal_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(admin_add_bal_start, pattern="^admin_add_bal_start$")],
         states={
-            ADMIN_BAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_ban_process)],
-            ADMIN_UNBAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_unban_process)],
             ADMIN_ADD_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_user)],
-            ADMIN_ADD_BAL_AMT: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_amt)],
-            ADMIN_ZERO_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_zero_bal_process)],
-            ADMIN_RATE_WA_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_rate_wa_process)],
-            ADMIN_RATE_TG_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_rate_tg_process)],
-            ADMIN_BROADCAST: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_broadcast_process)],
+            ADMIN_ADD_BAL_AMT: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_amt)]
         },
-        fallbacks=[
-            CommandHandler("cancel", cancel_flow),
-            CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")
-        ]
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
+    # Admin Zero Balance Conversation
+    admin_zero_bal_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(admin_zero_bal_start, pattern="^admin_zero_bal_start$")],
+        states={ADMIN_ZERO_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_zero_bal_process)]},
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+    )
+
+    # Admin Rate Set Conversations
+    admin_rate_wa_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(admin_rate_wa_start, pattern="^admin_rate_wa_start$")],
+        states={ADMIN_RATE_WA_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_rate_wa_process)]},
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+    )
+
+    admin_rate_tg_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(admin_rate_tg_start, pattern="^admin_rate_tg_start$")],
+        states={ADMIN_RATE_TG_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_rate_tg_process)]},
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+    )
+
+    # Register Handlers
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(sub_handler)
-    app.add_handler(dep_handler)
-    app.add_handler(admin_handler)
+    app.add_handler(sub_conv)
+    app.add_handler(deposit_conv)
+    app.add_handler(admin_ban_conv)
+    app.add_handler(admin_unban_conv)
+    app.add_handler(admin_add_bal_conv)
+    app.add_handler(admin_zero_bal_conv)
+    app.add_handler(admin_rate_wa_conv)
+    app.add_handler(admin_rate_tg_conv)
     app.add_handler(CallbackQueryHandler(handle_callbacks))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_messages))
 
-    print("Rex Private Bot Running...")
-    app.run_polling(close_loop=False)
+    logging.info("🤖 Bot startup sequence completed. Starting polling...")
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
