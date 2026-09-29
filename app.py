@@ -33,8 +33,8 @@ logging.basicConfig(
 # Environment Variables & Config
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 VAK_SMS_API_KEY = os.getenv("VAK_SMS_API_KEY", "893d842ab70a4e79b4ad323185a69257")
-ADMIN_ID = int(os.getenv("ADMIN_ID", "123456789"))  # Admin Telegram ID
-OTP_GROUP_ID = os.getenv("OTP_GROUP_ID")  # Render Environment Variable
+ADMIN_ID = int(os.getenv("ADMIN_ID", "123456789"))
+OTP_GROUP_ID = os.getenv("OTP_GROUP_ID")
 BINANCE_ID = os.getenv("BINANCE_ID", "907194603")
 ADMIN_BKASH = "01858582881"
 MONGODB_URI = os.getenv("MONGODB_URI")
@@ -76,9 +76,8 @@ SUB_AMOUNT, SUB_TXID, SUB_SCREENSHOT = range(3, 6)
     ADMIN_BROADCAST,
 ) = range(6, 14)
 
-# Helper Functions: Formatting & Masking
+# Helper Functions
 def mask_number(phone_str: str) -> str:
-    """Masks digits except country prefix and last 4 digits."""
     clean_num = re.sub(r"[^\d+]", "", str(phone_str))
     if len(clean_num) <= 6:
         return clean_num
@@ -87,7 +86,6 @@ def mask_number(phone_str: str) -> str:
     masked_part = "*" * (len(clean_num) - len(prefix) - len(suffix))
     return f"{prefix}{masked_part}{suffix}"
 
-# Mongo DB Helper Functions
 def get_user(user_id: int):
     return users_col.find_one({"user_id": user_id})
 
@@ -99,7 +97,7 @@ def get_or_create_user(user_id: int, full_name: str = "User"):
             "full_name": full_name,
             "balance": 0.0,
             "otp_count": 0,
-            "selected_country": "cl",  # Default Chile (cl)
+            "selected_country": "hk",  # Default Hong Kong (hk)
             "selected_service": "tg",  # Default Telegram (tg)
             "is_banned": False,
             "subscription_expiry": None
@@ -114,7 +112,7 @@ def get_rate(service_code: str = "tg"):
     doc = settings_col.find_one({"type": "rates"})
     if doc and service_code in doc.get("rates", {}):
         return float(doc["rates"][service_code])
-    return 0.10 if service_code == "wa" else 0.12  # Default bot selling rate
+    return 0.10 if service_code == "wa" else 0.12
 
 def set_rate(service_code: str, rate: float):
     settings_col.update_one(
@@ -136,7 +134,6 @@ def set_bot_active(status: bool):
         upsert=True
     )
 
-# Helper Function: Check Subscription Status
 def is_subscribed(user_id: int) -> bool:
     if user_id == ADMIN_ID:
         return True
@@ -166,7 +163,7 @@ def set_number_status(id_num: str, status: str):
     except Exception as e:
         return {"error": str(e)}
 
-def buy_vak_number(service: str = "tg", country: str = "cl", max_price: float = 0.087):
+def buy_vak_number(service: str = "tg", country: str = "hk", max_price: float = 0.087):
     url = f"https://vak-sms.com/api/getNumber/?apiKey={VAK_SMS_API_KEY}&service={service}&country={country}&maxPrice={max_price}"
     try:
         res = requests.get(url).json()
@@ -239,7 +236,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     exp_time = u_data.get("subscription_expiry")
     exp_str = exp_time.strftime("%Y-%m-%d %H:%M") if (exp_time and user_id != ADMIN_ID) else "Unlimited (Admin)"
 
-    curr_country = u_data.get("selected_country", "cl").upper()
+    curr_country = u_data.get("selected_country", "hk").upper()
     curr_service = u_data.get("selected_service", "tg").upper()
 
     welcome_msg = (
@@ -302,20 +299,13 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(profile_msg, parse_mode="Markdown")
         return
 
-    # FIXED: Corrected spelling matching with main keyboard (COUNTRY)
+    # ONLY HONG KONG & CHILE
     if text == "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈":
         country_kb = [
-            [KeyboardButton("COUNTRY: CHILE (CL)"), KeyboardButton("COUNTRY: HK (HONG KONG)")],
-            [KeyboardButton("COUNTRY: ID (INDONESIA)"), KeyboardButton("COUNTRY: RU (RUSSIA)")],
-            [KeyboardButton("COUNTRY: VN (VIETNAM)")],
+            [KeyboardButton("COUNTRY: HK (HONG KONG)"), KeyboardButton("COUNTRY: CHILE (CL)")],
             [KeyboardButton("🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄")]
         ]
         await update.message.reply_text("🌐 **SELECT YOUR COUNTRY:**", reply_markup=ReplyKeyboardMarkup(country_kb, resize_keyboard=True))
-        return
-
-    if text == "COUNTRY: CHILE (CL)":
-        users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "cl"}})
-        await update.message.reply_text("✅ Country set: `CHILE (CL)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
 
     if text == "COUNTRY: HK (HONG KONG)":
@@ -323,19 +313,9 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("✅ Country set: `HONG KONG (HK)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
 
-    if text == "COUNTRY: ID (INDONESIA)":
-        users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "id"}})
-        await update.message.reply_text("✅ Country set: `INDONESIA (ID)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
-        return
-
-    if text == "COUNTRY: RU (RUSSIA)":
-        users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "ru"}})
-        await update.message.reply_text("✅ Country set: `RUSSIA (RU)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
-        return
-
-    if text == "COUNTRY: VN (VIETNAM)":
-        users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "vn"}})
-        await update.message.reply_text("✅ Country set: `VIETNAM (VN)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
+    if text == "COUNTRY: CHILE (CL)":
+        users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "cl"}})
+        await update.message.reply_text("✅ Country set: `CHILE (CL)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
 
     if text == "📱 𝚂𝙴𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴":
@@ -362,16 +342,11 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "🛒 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁":
-        country = u_data.get("selected_country", "cl")
+        country = u_data.get("selected_country", "hk")
         service = u_data.get("selected_service", "tg")
         
-        # Determine Max Purchase Limit based on country
-        if country == "cl":
-            max_price_limit = 0.087
-        elif country == "hk":
-            max_price_limit = 0.075
-        else:
-            max_price_limit = 0.20  # Default limit for other countries
+        # Limit set based on selected country
+        max_price_limit = 0.087 if country == "cl" else 0.075
         
         bot_rate = get_rate(service)
         user_bal = u_data.get("balance", 0.0)
@@ -439,7 +414,7 @@ async def send_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
         [InlineKeyboardButton("💵 SET WA PRICE", callback_data="admin_rate_wa_start"), InlineKeyboardButton("💵 SET TG PRICE", callback_data="admin_rate_tg_start")],
         [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝗖𝗘", callback_data="admin_zero_bal_start")],
-        [InlineKeyboardButton("📢 𝗕𝗥𝗢𝗗𝙲𝗔𝗦𝗧 𝗔𝗟𝗟", callback_data="admin_broadcast_start")],
+        [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝚃 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
         [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
     ])
     if update.message:
@@ -489,7 +464,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
             [InlineKeyboardButton("💵 SET WA PRICE", callback_data="admin_rate_wa_start"), InlineKeyboardButton("💵 SET TG PRICE", callback_data="admin_rate_tg_start")],
             [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝗖𝗘", callback_data="admin_zero_bal_start")],
-            [InlineKeyboardButton("📢 𝗕𝗥𝗢𝗗𝙲𝗔𝗦𝗧 𝗔𝗟𝗟", callback_data="admin_broadcast_start")],
+            [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝚃 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
             [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
         ])
         try:
@@ -562,7 +537,7 @@ async def process_otp_success(context, id_num: str, otp: str):
     phone = order_info["phone"]
     msg_id = order_info["msg_id"]
     service_type = order_info.get("service", "tg").upper()
-    country_code = order_info.get("country", "cl").upper()
+    country_code = order_info.get("country", "hk").upper()
 
     users_col.update_one(
         {"user_id": uid},
@@ -884,15 +859,10 @@ async def admin_rate_tg_process(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text("❌ Invalid Rate Format! (Sothik number likhun, jemon: `0.10`).")
     return ConversationHandler.END
 
-# Main Application Entry Point
-def main():
-    # Start Flask Web Server Thread
-    threading.Thread(target=run_flask, daemon=True).start()
-
-    # Build Application
+# Async Main Runner (Fixes Event Loop / RuntimeError)
+async def run_bot():
     app = Application.builder().token(BOT_TOKEN).build()
 
-    # Subscription Conversation Handler
     sub_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(sub_start, pattern="^buy_sub_start$")],
         states={
@@ -906,7 +876,6 @@ def main():
         fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Deposit Conversation Handler
     deposit_conv = ConversationHandler(
         entry_points=[MessageHandler(filters.Regex("^💵 𝙳𝙸𝙿𝙾𝚂𝙸𝚃$"), deposit_start)],
         states={
@@ -920,21 +889,18 @@ def main():
         fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Admin Ban Conversation
     admin_ban_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_ban_start, pattern="^admin_ban_start$")],
         states={ADMIN_BAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_ban_process)]},
         fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Admin Unban Conversation
     admin_unban_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_unban_start, pattern="^admin_unban_start$")],
         states={ADMIN_UNBAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_unban_process)]},
         fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Admin Add Balance Conversation
     admin_add_bal_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_add_bal_start, pattern="^admin_add_bal_start$")],
         states={
@@ -944,14 +910,12 @@ def main():
         fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Admin Zero Balance Conversation
     admin_zero_bal_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_zero_bal_start, pattern="^admin_zero_bal_start$")],
         states={ADMIN_ZERO_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_zero_bal_process)]},
         fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Admin Rate Set Conversations
     admin_rate_wa_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_rate_wa_start, pattern="^admin_rate_wa_start$")],
         states={ADMIN_RATE_WA_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_rate_wa_process)]},
@@ -964,7 +928,6 @@ def main():
         fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Register Handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(sub_conv)
     app.add_handler(deposit_conv)
@@ -977,8 +940,22 @@ def main():
     app.add_handler(CallbackQueryHandler(handle_callbacks))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_messages))
 
-    logging.info("🤖 Bot startup sequence completed. Starting polling...")
-    app.run_polling()
+    async with app:
+        await app.start()
+        await app.updater.start_polling()
+        logging.info("🤖 Bot startup sequence completed. Polling started successfully.")
+        await asyncio.Event().wait()
+
+def main():
+    threading.Thread(target=run_flask, daemon=True).start()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(run_bot())
+    except KeyboardInterrupt:
+        pass
+    finally:
+        loop.close()
 
 if __name__ == "__main__":
     main()
