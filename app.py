@@ -2,10 +2,6 @@ import logging
 import os
 import threading
 import asyncio
-import logging
-import os
-import threading
-import asyncio
 import re
 from datetime import datetime, timedelta
 from flask import Flask
@@ -69,7 +65,7 @@ active_orders = {}
 # Conversation States
 WAITING_AMOUNT, WAITING_TXID, WAITING_SCREENSHOT = range(3)
 SUB_AMOUNT, SUB_TXID, SUB_SCREENSHOT = range(3, 6)
-ADMIN_BAN, ADMIN_UNBAN, ADMIN_ADD_BAL_USER, ADMIN_ADD_BAL_AMT, ADMIN_ZERO_BAL_USER, ADMIN_RATE_SET, ADMIN_BROADCAST = range(6, 13)
+ADMIN_BAN, ADMIN_UNBAN, ADMIN_ADD_BAL_USER, ADMIN_ADD_BAL_AMT, ADMIN_ZERO_BAL_USER, ADMIN_RATE_SET, ADMIN_TG_RATE_SET, ADMIN_BROADCAST = range(6, 14)
 
 # Helper Functions: Formatting & Masking
 def mask_number(phone_str: str) -> str:
@@ -148,7 +144,7 @@ def is_subscribed(user_id: int) -> bool:
 def get_main_keyboard(user_id):
     keyboard = [
         [KeyboardButton("💳 𝙰𝙲𝙲𝙾𝚄𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴"), KeyboardButton("🛒 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁"), KeyboardButton("🛒 𝙱𝚈 𝚃𝙶")],
-        [KeyboardButton("🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈"), KeyboardButton("📱 𝚂𝙴𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴")],
+        [KeyboardButton("🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝙸"), KeyboardButton("📱 𝚂𝙴𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴")],
         [KeyboardButton("👤 𝙼𝚈 𝙿𝚁𝙾𝙵𝙸𝙻𝙴"), KeyboardButton("💵 𝙳𝙸𝙿𝙾𝚂𝙸𝚃")]
     ]
     if user_id == ADMIN_ID:
@@ -225,7 +221,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👋 **Hello {user.full_name}!**\n\n"
             f"❌ 𝚈𝙾𝚄 𝙳𝙾𝙽'𝚃 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚃𝙷𝙴 𝙱𝙾𝚃!\n"
             f"ʙᴏᴛ ʙᴇʙᴏʜᴀʀ ᴋᴏʀᴛᴇ ᴄʜᴀɪʟᴇ sᴜʙsᴄʀɪᴘᴛɪᴏɴ ɴɪᴛᴇ ʜᴏʙᴇ.\n\n"
-            f"📌 **𝗣𝗥𝗜𝗖𝗘:** `30 Tk`\n"
+            f"📌 **𝗣𝗥𝗜Ｃ𝗘:** `30 Tk`\n"
             f"⏳ **𝗩𝗔𝗟𝗜𝗗𝗜𝗧𝗬:** `3 Days`\n\n"
             f"ɴɪᴄʜᴇʀ ᴍᴇɴᴜ ᴛʜᴇᴋᴇ ᴄʟɪᴄᴋ ᴋᴏʀᴇ sᴜʙsᴄ𝚁𝙸𝙿𝚃𝙸𝙾𝙽 ᴋɪɴᴜɴ:"
         )
@@ -280,7 +276,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, parse_mode="Markdown")
         return
 
-    if text == "👤 𝙼𝙸 𝙿𝚁𝙾𝙵𝙸𝙻𝙴":
+    if text == "👤 𝙼𝚈 𝙿𝚁𝙾𝙵𝙸𝙻𝙴":
         bot_bal = u_data.get("balance", 0.0)
         otp_cnt = u_data.get("otp_count", 0)
         exp_time = u_data.get("subscription_expiry")
@@ -296,12 +292,12 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(profile_msg, parse_mode="Markdown")
         return
 
-    if text == "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈":
+    if text == "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝙸":
         country_kb = [
             [KeyboardButton("COUNTRY: HK (HONG KONG)")],
             [KeyboardButton("🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄")]
         ]
-        await update.message.reply_text("🌐 **𝙽𝙾𝚆 𝚂𝙴𝙻𝙴𝙲𝚃 𝙾𝙽𝙻𝚈 𝙷𝙾𝙽𝙶𝙺𝙾𝙽𝙶:**", reply_markup=ReplyKeyboardMarkup(country_kb, resize_keyboard=True))
+        await update.message.reply_text("🌐 **𝙽𝙾𝚆 𝚂𝙴𝙻𝙴𝙲𝚃 𝙾𝙽𝙻𝙸 𝙷𝙾𝙽𝙶𝙺𝙾𝙽𝙶:**", reply_markup=ReplyKeyboardMarkup(country_kb, resize_keyboard=True))
         return
 
     if text == "COUNTRY: HK (HONG KONG)":
@@ -314,7 +310,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [KeyboardButton("𝚂𝙴𝚁𝚅𝙸𝙲𝙴: WA (𝚆𝙷𝙰𝚃𝚂𝙰𝙿𝙿)")],
             [KeyboardButton("🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄")]
         ]
-        await update.message.reply_text("📱 **𝙽𝙾𝚆 𝚂𝙴𝙻𝙴𝙲𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴 𝙾𝙽𝙻𝚈 𝙷𝙾𝙽𝙶𝙺𝙾𝙽𝙶:**", reply_markup=ReplyKeyboardMarkup(service_kb, resize_keyboard=True))
+        await update.message.reply_text("📱 **𝙽𝙾𝚆 𝚂𝙴𝙻𝙴𝙲𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴 𝙾𝙽𝙻𝙸 𝙷𝙾𝙽𝙶𝙺𝙾𝙽𝙶:**", reply_markup=ReplyKeyboardMarkup(service_kb, resize_keyboard=True))
         return
 
     if text == "𝚂𝙴𝚁𝚅𝙸𝙲𝙴: WA (𝚆𝙷𝙰𝚃𝚂𝙰𝙿𝙿)":
@@ -341,7 +337,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         status_msg = await update.message.reply_text("⏳ `𝙷𝙺` 𝙲𝙾𝚄𝙽𝚃𝚁𝙸 𝙱𝚄𝙸𝙸𝙽𝙶 𝙽𝚄𝙼𝙱𝙴𝚁 𝚆𝙰𝙸𝚃 𝙵𝙴𝚆 𝚂𝙴𝙲𝙾𝙽𝙳𝚂...")
 
-        res = buy_vak_number(service, country, max_price=0.07)
+        res = buy_vak_number(service, country, max_price=bot_rate)
 
         if isinstance(res, dict) and "tel" in res and "idNum" in res:
             raw_phone = str(res["tel"])
@@ -385,7 +381,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"❌ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙺𝙴𝙽𝙰𝚁 𝚂𝙾𝙼𝚅𝙾𝙱 𝙷𝙾𝙸𝙽𝙸:** `{err_msg}`")
         return
 
-    # NEW Chile Telegram Purchase Logic
+    # Chile Telegram Purchase Logic (Custom Rate Enabled)
     if text == "🛒 𝙱𝙸 𝚃𝙶":
         country = "cl"
         service = "tg"
@@ -400,8 +396,8 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         status_msg = await update.message.reply_text("⏳ `Chile` 𝙲𝙾𝚄𝙽𝚃𝚁𝙸 𝚃𝙴𝙻𝙴𝙶𝚁𝙰𝙼 𝙽𝚄𝙼𝙱𝙴𝚁 𝙱𝚄𝙸𝙸𝙽𝙶 𝚆𝙰𝙸𝚃...")
 
-        # Strict limit 0.087
-        res = buy_vak_number(service="tg", country="cl", max_price=0.087)
+        # Dynamic max price set using custom bot_rate
+        res = buy_vak_number(service="tg", country="cl", max_price=bot_rate)
 
         if isinstance(res, dict) and "tel" in res and "idNum" in res:
             raw_phone = str(res["tel"])
@@ -453,8 +449,8 @@ async def send_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     admin_kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("👥 𝗩𝗜𝗘𝗪 𝗔𝗟𝗟 𝗨𝗦𝗘𝗥", callback_data="admin_view_users")],
         [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
-        [InlineKeyboardButton("💵 𝗦𝗘𝗧 𝗪𝗔 𝗣𝗥𝗜𝗖𝗘", callback_data="admin_rate_start"), InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start")],
-        [InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝗖𝗘", callback_data="admin_zero_bal_start")],
+        [InlineKeyboardButton("💵 𝚂𝙴𝚃 𝚆𝙰 𝙿𝚁𝙸𝙲𝙴", callback_data="admin_rate_start"), InlineKeyboardButton("💵 𝚂𝙴𝚃 𝚃𝙶 𝙿𝚁𝙸𝙲𝙴", callback_data="admin_tg_rate_start")],
+        [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝗖𝗘", callback_data="admin_zero_bal_start")],
         [InlineKeyboardButton("📢 𝗕𝗥𝗢𝗗𝗖𝗔𝗦𝗧 𝗔𝗟𝗟", callback_data="admin_broadcast_start")],
         [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
     ])
@@ -503,8 +499,8 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         admin_kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("👥 𝗩𝗜𝗘𝗪 𝗔𝗟𝗟 𝗨𝗦𝗘𝗥", callback_data="admin_view_users")],
             [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
-            [InlineKeyboardButton("💵 𝗦𝗘𝗧 𝗪𝗔 𝗣𝗥𝗜𝗖𝗘", callback_data="admin_rate_start"), InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start")],
-            [InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝗖𝗘", callback_data="admin_zero_bal_start")],
+            [InlineKeyboardButton("💵 𝚂𝙴𝚃 𝚆𝙰 𝙿𝚁𝙸𝙲𝙴", callback_data="admin_rate_start"), InlineKeyboardButton("💵 𝚂𝙴𝚃 𝚃𝙶 𝙿𝚁𝙸𝙲𝙴", callback_data="admin_tg_rate_start")],
+            [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝗖𝗘", callback_data="admin_zero_bal_start")],
             [InlineKeyboardButton("📢 𝗕𝗥𝗢𝗗𝗖𝗔𝗦𝗧 𝗔𝗟𝗟", callback_data="admin_broadcast_start")],
             [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
         ])
@@ -886,6 +882,22 @@ async def admin_rate_process(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text("❌ Invalid Rate Format! (Sothik number likhun, jemon: `0.075`).")
     return ConversationHandler.END
 
+async def admin_tg_rate_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.reply_text("💵 **Telegram (TG)-er notun Custom Bot Rate USDT-te likhun (jemon: `0.087` ba `0.09`):**")
+    return ADMIN_TG_RATE_SET
+
+async def admin_tg_rate_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        raw_val = update.message.text.strip()
+        rate = float(raw_val)
+        set_rate("tg", rate)
+        await update.message.reply_text(f"✅ Telegram (TG) Bot Rate update kora hoyeche: `${rate}` USDT", parse_mode="Markdown")
+    except ValueError:
+        await update.message.reply_text("❌ Invalid Rate Format! (Sothik number likhun, jemon: `0.087`).")
+    return ConversationHandler.END
+
 async def admin_broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -959,6 +971,7 @@ def main():
             CallbackQueryHandler(admin_add_bal_start, pattern="^admin_add_bal_start$"),
             CallbackQueryHandler(admin_zero_bal_start, pattern="^admin_zero_bal_start$"),
             CallbackQueryHandler(admin_rate_start, pattern="^admin_rate_start$"),
+            CallbackQueryHandler(admin_tg_rate_start, pattern="^admin_tg_rate_start$"),
             CallbackQueryHandler(admin_broadcast_start, pattern="^admin_broadcast_start$"),
         ],
         states={
@@ -968,6 +981,7 @@ def main():
             ADMIN_ADD_BAL_AMT: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_amt)],
             ADMIN_ZERO_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_zero_bal_process)],
             ADMIN_RATE_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_rate_process)],
+            ADMIN_TG_RATE_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_tg_rate_process)],
             ADMIN_BROADCAST: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_broadcast_process)],
         },
         fallbacks=[
