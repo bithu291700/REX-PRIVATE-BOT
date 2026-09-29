@@ -169,7 +169,7 @@ def buy_vak_number(service: str = "tg", country: str = "hk", max_price: float = 
         res = requests.get(url).json()
         
         if isinstance(res, dict) and res.get("error") == "noNumber":
-            return {"error": f"Stock Out for ${max_price} Price Limit!"}
+            return {"error": "Stock Out!"}
             
         if isinstance(res, dict) and "tel" in res and "idNum" in res:
             assigned_price = res.get("price")
@@ -179,13 +179,13 @@ def buy_vak_number(service: str = "tg", country: str = "hk", max_price: float = 
                     if price_val > max_price:
                         id_num = str(res["idNum"])
                         set_number_status(id_num, "bad")
-                        return {"error": f"Stock Out! Price (${price_val}) exceeded ${max_price} limit."}
+                        return {"error": "Stock Out!"}
                 except ValueError:
                     pass
 
         return res
     except Exception as e:
-        return {"error": str(e)}
+        return {"error": "Stock Out!"}
 
 def get_vak_balance():
     url = f"https://vak-sms.com/api/getBalance/?apiKey={VAK_SMS_API_KEY}"
@@ -242,7 +242,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msg = (
         f"👋 **𝚆𝙴𝙻𝙲𝙾𝙼𝙴 𝚁𝙴𝚇 𝙿𝚁𝙸𝚅𝙰𝚃𝙴 𝙱𝙾𝚃!**\n\n"
         f"⚙️ **𝚁𝙴𝙲𝙴𝙽𝚃 𝚂𝙴𝚃𝚄𝙿:**\n"
-        f"• 𝙲𝙾𝚄𝙽𝚃𝚁𝚈: `{curr_country}`\n"
+        f"• 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂: `{curr_country}`\n"
         f"• Service: `{curr_service}`\n"
         f"• 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${u_data.get('balance', 0.0):.4f} USDT`\n"
         f"• 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚅𝙰𝙻𝙸𝙳 𝚃𝙸𝙻𝙻: `{exp_str}`\n\n"
@@ -300,7 +300,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # ONLY HONG KONG & CHILE
-    if text == "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈":
+    if text == "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂":
         country_kb = [
             [KeyboardButton("COUNTRY: HK (HONG KONG)"), KeyboardButton("COUNTRY: CHILE (CL)")],
             [KeyboardButton("🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄")]
@@ -379,7 +379,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
 
             sent_msg = await update.message.reply_text(
-                f"✅ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙱𝚄𝚈 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙻𝚈!**\n\n"
+                f"✅ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙱𝚄𝙸𝙻𝙳 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙻𝚈!**\n\n"
                 f"📱 **Number:** `<code>{phone_num}</code>`\n"
                 f"🆔 **ID Num:** `{id_num}`\n"
                 f"🌍 **Country:** `{country.upper()}`\n"
@@ -406,8 +406,8 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             asyncio.create_task(auto_check_otp(context, user_id, id_num, str(phone_num), sent_msg.message_id))
         else:
-            err_msg = res.get("error", "𝚂𝚃𝙾𝙲𝙺 𝙾𝚄𝚃 𝚆𝙰𝙸𝚃") if isinstance(res, dict) else "Error"
-            await update.message.reply_text(f"❌ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙺𝙴𝙽𝙰𝚁 𝚂𝙾𝙼𝚅𝙾𝙱 𝙷𝙾𝙸𝙽𝙸:** `{err_msg}`")
+            err_msg = res.get("error", "Stock Out!") if isinstance(res, dict) else "Stock Out!"
+            await update.message.reply_text(f"❌ `{err_msg}`")
         return
 
     if text == "⚙️ 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻" and user_id == ADMIN_ID:
