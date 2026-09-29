@@ -299,8 +299,8 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(profile_msg, parse_mode="Markdown")
         return
 
-    # ONLY HONG KONG & CHILE
-    if text == "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂":
+    # COUNTRY SELECTION
+    if text in ["🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈", "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂"]:
         country_kb = [
             [KeyboardButton("COUNTRY: HK (HONG KONG)"), KeyboardButton("COUNTRY: CHILE (CL)")],
             [KeyboardButton("🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄")]
@@ -318,6 +318,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("✅ Country set: `CHILE (CL)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
 
+    # SERVICE SELECTION (FIXED MATCHING)
     if text == "📱 𝚂𝙴𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴":
         service_kb = [
             [KeyboardButton("𝚂𝙴𝚁𝚅𝙸𝙲𝙴: TG (𝚃𝙴𝙻𝙴𝙶𝚁𝙰𝙼)")],
@@ -327,12 +328,12 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("📱 **SELECT YOUR SERVICE:**", reply_markup=ReplyKeyboardMarkup(service_kb, resize_keyboard=True))
         return
 
-    if text == "𝚂𝙴𝚁𝚅𝙸𝙲𝙴: TG (𝚃𝙴𝙻𝙴𝙶𝚁𝙰𝙼)":
+    if "TG" in text or "TELEGRAM" in text.upper():
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_service": "tg"}})
         await update.message.reply_text("✅ 𝚂𝙴𝚁𝚅𝙸𝙲𝙴 𝚂𝙴𝚃: `TELEGRAM (TG)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
 
-    if text == "𝚂𝙴𝚁𝚅𝙸𝙲𝙴: WA (𝚆𝙷𝙰𝚃𝚂𝙰𝙿𝙿)":
+    if "WA" in text or "WHATSAPP" in text.upper():
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_service": "wa"}})
         await update.message.reply_text("✅ 𝚂𝙴𝚁𝚅𝙸𝙲𝙴 𝚂𝙴𝚃: `WHATSAPP (WA)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
@@ -421,7 +422,7 @@ async def send_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
         [InlineKeyboardButton("💵 SET WA PRICE", callback_data="admin_rate_wa_start"), InlineKeyboardButton("💵 SET TG PRICE", callback_data="admin_rate_tg_start")],
         [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝗖𝗘", callback_data="admin_zero_bal_start")],
-        [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝚃 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
+        [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝗧 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
         [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
     ])
     if update.message:
@@ -487,7 +488,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             otp = res["smsCode"]
             await process_otp_success(context, id_num, otp)
         else:
-            await query.message.reply_text("⏳ 𝙰𝙺𝙷𝙾𝙽𝙾 𝙾𝚃𝙿 𝙰𝚂𝙴𝙽𝙸, 𝙰𝙺𝚃𝚄 𝙿𝙾𝚁𝙴 𝙰𝙱𝙰𝚁 𝚃𝚁𝚈 𝙺𝙾𝚁𝚄𝙽.")
+            await query.message.reply_text("⏳ 𝙰𝙺𝙷𝙾𝙽𝙾 𝙾𝚃𝙿 𝙰𝚂𝙴𝙽𝙸, 𝙰𝙺𝚃𝚄 𝙿𝙾𝚁𝙴 𝙰𝙱𝙰𝚁 𝚃𝚁𝙸 𝙺𝙾𝚁𝚄𝙽.")
 
     elif data.startswith("cancel_num_"):
         id_num = data.split("_")[2]
