@@ -345,8 +345,15 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         country = u_data.get("selected_country", "hk")
         service = u_data.get("selected_service", "tg")
         
-        # Limit set based on selected country
-        max_price_limit = 0.087 if country == "cl" else 0.075
+        # Strict Dynamic Max Price Mapping
+        if country == "hk" and service == "wa":
+            max_price_limit = 0.07   # Locked for Hong Kong WhatsApp
+        elif country == "cl" and service == "tg":
+            max_price_limit = 0.087  # Locked for Chile Telegram
+        elif country == "cl":
+            max_price_limit = 0.087
+        else:
+            max_price_limit = 0.075  # Default for HK TG
         
         bot_rate = get_rate(service)
         user_bal = u_data.get("balance", 0.0)
