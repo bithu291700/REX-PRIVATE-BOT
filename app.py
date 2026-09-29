@@ -472,7 +472,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
             [InlineKeyboardButton("💵 SET WA PRICE", callback_data="admin_rate_wa_start"), InlineKeyboardButton("💵 SET TG PRICE", callback_data="admin_rate_tg_start")],
             [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝗖𝗘", callback_data="admin_zero_bal_start")],
-            [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝚃 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
+            [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝗧 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
             [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
         ])
         try:
@@ -867,6 +867,45 @@ async def admin_rate_tg_process(update: Update, context: ContextTypes.DEFAULT_TY
         await update.message.reply_text("❌ Invalid Rate Format! (Sothik number likhun, jemon: `0.10`).")
     return ConversationHandler.END
 
+# ADMIN BROADCAST HANDLERS
+async def admin_broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await query.message.reply_text("📢 **Sobai ke broadcast korte chawa message-ti (Text/Photo) ekhane pathan:**", reply_markup=cancel_kb)
+    return ADMIN_BROADCAST
+
+async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    all_users = list(users_col.find())
+    success_count = 0
+    fail_count = 0
+    
+    status_msg = await update.message.reply_text(f"⏳ **Broadcast Process Shuru Hoche... Total Users: {len(all_users)}**")
+    
+    for u in all_users:
+        uid = u.get("user_id")
+        if not uid:
+            continue
+        try:
+            if update.message.photo:
+                photo_file_id = update.message.photo[-1].file_id
+                caption_text = update.message.caption or ""
+                await context.bot.send_photo(chat_id=uid, photo=photo_file_id, caption=caption_text)
+            else:
+                await context.bot.send_message(chat_id=uid, text=update.message.text)
+            success_count += 1
+            await asyncio.sleep(0.05)  # Telegram Rate Limit Avoider
+        except Exception:
+            fail_count += 1
+
+    result_text = (
+        f"📢 **Broadcast Shes Huyeche!**\n\n"
+        f"✅ **Success:** `{success_count}` Users\n"
+        f"❌ **Failed/Blocked:** `{fail_count}` Users"
+    )
+    await status_msg.edit_text(result_text, parse_mode="Markdown")
+    return ConversationHandler.END
+
 # Async Main Runner (Fixes Event Loop / RuntimeError)
 async def run_bot():
     app = Application.builder().token(BOT_TOKEN).build()
@@ -936,6 +975,12 @@ async def run_bot():
         fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
+    admin_broadcast_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(admin_broadcast_start, pattern="^admin_broadcast_start$")],
+        states={ADMIN_BROADCAST: [MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, admin_broadcast_process)]},
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+    )
+
     app.add_handler(CommandHandler("start", start))
     app.add_handler(sub_conv)
     app.add_handler(deposit_conv)
@@ -945,6 +990,7 @@ async def run_bot():
     app.add_handler(admin_zero_bal_conv)
     app.add_handler(admin_rate_wa_conv)
     app.add_handler(admin_rate_tg_conv)
+    app.add_handler(admin_broadcast_conv)
     app.add_handler(CallbackQueryHandler(handle_callbacks))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_messages))
 
