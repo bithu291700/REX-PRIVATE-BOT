@@ -77,6 +77,14 @@ SUB_AMOUNT, SUB_TXID, SUB_SCREENSHOT = range(3, 6)
 ) = range(6, 14)
 
 # Helper Functions
+def get_flag_emoji(country_code: str) -> str:
+    code = country_code.lower()
+    if code == "hk":
+        return "🇭🇰"
+    elif code == "cl":
+        return "🇨🇱"
+    return "🌐"
+
 def mask_number(phone_str: str) -> str:
     clean_num = re.sub(r"[^\d+]", "", str(phone_str))
     if len(clean_num) <= 6:
@@ -236,13 +244,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     exp_time = u_data.get("subscription_expiry")
     exp_str = exp_time.strftime("%Y-%m-%d %H:%M") if (exp_time and user_id != ADMIN_ID) else "Unlimited (Admin)"
 
-    curr_country = u_data.get("selected_country", "hk").upper()
+    curr_country_code = u_data.get("selected_country", "hk")
+    curr_country = curr_country_code.upper()
+    flag = get_flag_emoji(curr_country_code)
     curr_service = u_data.get("selected_service", "tg").upper()
 
     welcome_msg = (
         f"👋 **𝚆𝙴𝙻𝙲𝙾𝙼𝙴 𝚁𝙴𝚇 𝙿𝚁𝙸𝚅𝙰𝚃𝙴 𝙱𝙾𝚃!**\n\n"
         f"⚙️ **𝚁𝙴𝙲𝙴𝙽𝚃 𝚂𝙴𝚃𝚄𝙿:**\n"
-        f"• 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂: `{curr_country}`\n"
+        f"• 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂: `{curr_country}` {flag}\n"
         f"• Service: `{curr_service}`\n"
         f"• 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${u_data.get('balance', 0.0):.4f} USDT`\n"
         f"• 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚅𝙰𝙻𝙸𝙳 𝚃𝙸𝙻𝙻: `{exp_str}`\n\n"
@@ -302,23 +312,23 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # COUNTRY SELECTION
     if text in ["🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈", "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂"]:
         country_kb = [
-            [KeyboardButton("COUNTRY: HK (HONG KONG)"), KeyboardButton("COUNTRY: CHILE (CL)")],
+            [KeyboardButton("COUNTRY: HK 🇭🇰 (HONG KONG)"), KeyboardButton("COUNTRY: CHILE 🇨🇱 (CL)")],
             [KeyboardButton("🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄")]
         ]
         await update.message.reply_text("🌐 **SELECT YOUR COUNTRY:**", reply_markup=ReplyKeyboardMarkup(country_kb, resize_keyboard=True))
         return
 
-    if text == "COUNTRY: HK (HONG KONG)":
+    if "HK" in text.upper() or "HONG KONG" in text.upper():
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "hk"}})
-        await update.message.reply_text("✅ Country set: `HONG KONG (HK)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
+        await update.message.reply_text("✅ Country set: `HONG KONG (HK)` 🇭🇰", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
 
-    if text == "COUNTRY: CHILE (CL)":
+    if "CHILE" in text.upper() or "CL" in text.upper():
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "cl"}})
-        await update.message.reply_text("✅ Country set: `CHILE (CL)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
+        await update.message.reply_text("✅ Country set: `CHILE (CL)` 🇨🇱", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
 
-    # SERVICE SELECTION (FIXED MATCHING)
+    # SERVICE SELECTION
     if text == "📱 𝚂𝙴𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴":
         service_kb = [
             [KeyboardButton("𝚂𝙴𝚁𝚅𝙸𝙲𝙴: TG (𝚃𝙴𝙻𝙴𝙶𝚁𝙰𝙼)")],
@@ -346,7 +356,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         country = u_data.get("selected_country", "hk")
         service = u_data.get("selected_service", "tg")
         
-        # Strict Dynamic Max Price Mapping
+        # Dynamic Max Price Mapping
         if country == "hk" and service == "wa":
             max_price_limit = 0.07   # Locked for Hong Kong WhatsApp
         elif country == "cl" and service == "tg":
@@ -365,7 +375,8 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        status_msg = await update.message.reply_text(f"⏳ `{country.upper()}` BUYING NUMBER... WAIT A FEW SECONDS.")
+        flag = get_flag_emoji(country)
+        status_msg = await update.message.reply_text(f"⏳ `{country.upper()}` {flag} BUYING NUMBER... WAIT A FEW SECONDS.")
 
         res = buy_vak_number(service=service, country=country, max_price=max_price_limit)
 
@@ -383,7 +394,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"✅ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙱𝚄𝙸𝙻𝙳 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙻𝚈!**\n\n"
                 f"📱 **Number:** `<code>{phone_num}</code>`\n"
                 f"🆔 **ID Num:** `{id_num}`\n"
-                f"🌍 **Country:** `{country.upper()}`\n"
+                f"🌍 **Country:** `{country.upper()}` {flag}\n"
                 f"💬 **Service:** `{service.upper()}`\n"
                 f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝘾𝙀 𝙆𝘼𝙏𝘽𝙀)*\n\n"
                 f"⏳ *𝙾𝚃𝙿 𝙿𝙾𝚆𝙴𝚁 𝙹𝙾𝙽𝙽𝙾 𝙾𝙿𝙴𝙺𝙺𝙷𝙰 𝙺𝙾𝚁𝚄𝙽...*",
@@ -545,7 +556,7 @@ async def process_otp_success(context, id_num: str, otp: str):
     phone = order_info["phone"]
     msg_id = order_info["msg_id"]
     service_type = order_info.get("service", "tg").upper()
-    country_code = order_info.get("country", "hk").upper()
+    country_code = order_info.get("country", "hk").lower()
 
     users_col.update_one(
         {"user_id": uid},
@@ -575,12 +586,10 @@ async def process_otp_success(context, id_num: str, otp: str):
         await context.bot.send_message(chat_id=uid, text=success_text, parse_mode="HTML")
 
     masked_phone = mask_number(phone)
-    
-    # Flag emoji selection
-    flag_emoji = "🇭🇰" if country_code == "HK" else ("🇨🇱" if country_code == "CL" else "🌐")
+    flag_emoji = get_flag_emoji(country_code)
 
     group_forward_msg = (
-        f"🌐 **COUNTRY:** `{country_code}` {flag_emoji}\n"
+        f"🌐 **COUNTRY:** `{country_code.upper()}` {flag_emoji}\n"
         f"📱 **𝙽𝚄𝙼𝙱𝙴𝚁:** `{masked_phone}`\n"
         f"🔑 **𝙾𝚃𝙿:** `{otp}`\n"
         f"💬 **Message:** `YOUR {service_type} CODE: {otp}`"
