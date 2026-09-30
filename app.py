@@ -77,6 +77,14 @@ SUB_AMOUNT, SUB_TXID, SUB_SCREENSHOT = range(3, 6)
 ) = range(6, 14)
 
 # Helper Functions
+def get_country_flag(country_code: str) -> str:
+    code = country_code.lower()
+    if code == "hk":
+        return "🇭🇰"
+    elif code == "cl":
+        return "🇨🇱"
+    return "🌐"
+
 def mask_number(phone_str: str) -> str:
     clean_num = re.sub(r"[^\d+]", "", str(phone_str))
     if len(clean_num) <= 6:
@@ -236,13 +244,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     exp_time = u_data.get("subscription_expiry")
     exp_str = exp_time.strftime("%Y-%m-%d %H:%M") if (exp_time and user_id != ADMIN_ID) else "Unlimited (Admin)"
 
-    curr_country = u_data.get("selected_country", "hk").upper()
+    curr_country_code = u_data.get("selected_country", "hk")
+    curr_country = curr_country_code.upper()
+    country_flag = get_country_flag(curr_country_code)
     curr_service = u_data.get("selected_service", "tg").upper()
 
     welcome_msg = (
         f"👋 **𝚆𝙴𝙻𝙲𝙾𝙼𝙴 𝚁𝙴𝚇 𝙿𝚁𝙸𝚅𝙰𝚃𝙴 𝙱𝙾𝚃!**\n\n"
         f"⚙️ **𝚁𝙴𝙲𝙴𝙽𝚃 𝚂𝙴𝚃𝚄𝙿:**\n"
-        f"• 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂: `{curr_country}`\n"
+        f"• 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂: `{curr_country}` {country_flag}\n"
         f"• Service: `{curr_service}`\n"
         f"• 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${u_data.get('balance', 0.0):.4f} USDT`\n"
         f"• 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚅𝙰𝙻𝙸𝙳 𝚃𝙸𝙻𝙻: `{exp_str}`\n\n"
@@ -302,20 +312,20 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # COUNTRY SELECTION
     if text in ["🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈", "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂"]:
         country_kb = [
-            [KeyboardButton("COUNTRY: HK (HONG KONG)"), KeyboardButton("COUNTRY: CHILE (CL)")],
+            [KeyboardButton("COUNTRY: HK 🇭🇰 (HONG KONG)"), KeyboardButton("COUNTRY: CHILE 🇨🇱 (CL)")],
             [KeyboardButton("🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄")]
         ]
         await update.message.reply_text("🌐 **SELECT YOUR COUNTRY:**", reply_markup=ReplyKeyboardMarkup(country_kb, resize_keyboard=True))
         return
 
-    if text == "COUNTRY: HK (HONG KONG)":
+    if "HK" in text:
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "hk"}})
-        await update.message.reply_text("✅ Country set: `HONG KONG (HK)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
+        await update.message.reply_text("✅ Country set: `HONG KONG (HK)` 🇭🇰", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
 
-    if text == "COUNTRY: CHILE (CL)":
+    if "CHILE" in text or "CL" in text:
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "cl"}})
-        await update.message.reply_text("✅ Country set: `CHILE (CL)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
+        await update.message.reply_text("✅ Country set: `CHILE (CL)` 🇨🇱", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
 
     # SERVICE SELECTION (FIXED MATCHING)
@@ -345,6 +355,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "🛒 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁":
         country = u_data.get("selected_country", "hk")
         service = u_data.get("selected_service", "tg")
+        country_flag = get_country_flag(country)
         
         # Strict Dynamic Max Price Mapping
         if country == "hk" and service == "wa":
@@ -365,7 +376,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        status_msg = await update.message.reply_text(f"⏳ `{country.upper()}` BUYING NUMBER... WAIT A FEW SECONDS.")
+        status_msg = await update.message.reply_text(f"⏳ `{country.upper()}` {country_flag} BUYING NUMBER... WAIT A FEW SECONDS.")
 
         res = buy_vak_number(service=service, country=country, max_price=max_price_limit)
 
@@ -383,7 +394,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"✅ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙱𝚄𝙸𝙻𝙳 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙻𝚈!**\n\n"
                 f"📱 **Number:** `<code>{phone_num}</code>`\n"
                 f"🆔 **ID Num:** `{id_num}`\n"
-                f"🌍 **Country:** `{country.upper()}`\n"
+                f"🌍 **Country:** `{country.upper()}` {country_flag}\n"
                 f"💬 **Service:** `{service.upper()}`\n"
                 f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝘾𝙀 𝙆𝘼𝙏𝘽𝙀)*\n\n"
                 f"⏳ *𝙾𝚃𝙿 𝙿𝙾𝚆𝙴𝚁 𝙹𝙾𝙽𝙽𝙾 𝙾𝙿𝙴𝙺𝙺𝙷𝙰 𝙺𝙾𝚁𝚄𝙽...*",
@@ -422,7 +433,7 @@ async def send_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
         [InlineKeyboardButton("💵 SET WA PRICE", callback_data="admin_rate_wa_start"), InlineKeyboardButton("💵 SET TG PRICE", callback_data="admin_rate_tg_start")],
         [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝗖𝗘", callback_data="admin_zero_bal_start")],
-        [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝗧 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
+        [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝚃 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
         [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
     ])
     if update.message:
@@ -472,7 +483,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
             [InlineKeyboardButton("💵 SET WA PRICE", callback_data="admin_rate_wa_start"), InlineKeyboardButton("💵 SET TG PRICE", callback_data="admin_rate_tg_start")],
             [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝗖𝗘", callback_data="admin_zero_bal_start")],
-            [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝗧 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
+            [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝚃 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
             [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
         ])
         try:
@@ -545,7 +556,8 @@ async def process_otp_success(context, id_num: str, otp: str):
     phone = order_info["phone"]
     msg_id = order_info["msg_id"]
     service_type = order_info.get("service", "tg").upper()
-    country_code = order_info.get("country", "hk").upper()
+    country_code = order_info.get("country", "hk")
+    country_flag = get_country_flag(country_code)
 
     users_col.update_one(
         {"user_id": uid},
@@ -576,7 +588,7 @@ async def process_otp_success(context, id_num: str, otp: str):
 
     masked_phone = mask_number(phone)
     group_forward_msg = (
-        f"🌐 **COUNTRY:** `{country_code}`\n"
+        f"🌐 **COUNTRY:** `{country_code.upper()}` {country_flag}\n"
         f"📱 **𝙽𝚄𝙼𝙱𝙴𝚁:** `{masked_phone}`\n"
         f"🔑 **𝙾𝚃𝙿:** `{otp}`\n"
         f"💬 **Message:** `YOUR {service_type} CODE: {otp}`"
