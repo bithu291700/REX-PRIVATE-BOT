@@ -765,6 +765,11 @@ async def deposit_screenshot_received(update: Update, context: ContextTypes.DEFA
         f"👤 **User:** {user.full_name} (`{user.id}`)\n"
         f"💰 **Amount:** `${amount}` USDT\n"
         f"🧾 **TxID:** `{txid}`"
+caption = (
+        f"📥 **Notun Deposit Request!**\n\n"
+        f"👤 **User:** {user.full_name} (`{user.id}`)\n"
+        f"💰 **Amount:** `${amount}` USDT\n"
+        f"🧾 **TxID:** `{txid}`"
     )
 
     await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo.file_id, caption=caption, parse_mode="Markdown", reply_markup=admin_kb)
