@@ -77,14 +77,6 @@ SUB_AMOUNT, SUB_TXID, SUB_SCREENSHOT = range(3, 6)
 ) = range(6, 14)
 
 # Helper Functions
-def get_flag_emoji(country_code: str) -> str:
-    code = country_code.lower()
-    if code == "hk":
-        return "🇭🇰"
-    elif code == "cl":
-        return "🇨🇱"
-    return "🌐"
-
 def mask_number(phone_str: str) -> str:
     clean_num = re.sub(r"[^\d+]", "", str(phone_str))
     if len(clean_num) <= 6:
@@ -244,15 +236,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     exp_time = u_data.get("subscription_expiry")
     exp_str = exp_time.strftime("%Y-%m-%d %H:%M") if (exp_time and user_id != ADMIN_ID) else "Unlimited (Admin)"
 
-    curr_country_code = u_data.get("selected_country", "hk")
-    curr_country = curr_country_code.upper()
-    flag = get_flag_emoji(curr_country_code)
+    curr_country = u_data.get("selected_country", "hk").upper()
     curr_service = u_data.get("selected_service", "tg").upper()
 
     welcome_msg = (
         f"👋 **𝚆𝙴𝙻𝙲𝙾𝙼𝙴 𝚁𝙴𝚇 𝙿𝚁𝙸𝚅𝙰𝚃𝙴 𝙱𝙾𝚃!**\n\n"
         f"⚙️ **𝚁𝙴𝙲𝙴𝙽𝚃 𝚂𝙴𝚃𝚄𝙿:**\n"
-        f"• 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂: `{curr_country}` {flag}\n"
+        f"• 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂: `{curr_country}`\n"
         f"• Service: `{curr_service}`\n"
         f"• 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${u_data.get('balance', 0.0):.4f} USDT`\n"
         f"• 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚅𝙰𝙻𝙸𝙳 𝚃𝙸𝙻𝙻: `{exp_str}`\n\n"
@@ -312,23 +302,23 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # COUNTRY SELECTION
     if text in ["🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈", "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂"]:
         country_kb = [
-            [KeyboardButton("COUNTRY: HK 🇭🇰 (HONG KONG)"), KeyboardButton("COUNTRY: CHILE 🇨🇱 (CL)")],
+            [KeyboardButton("COUNTRY: HK (HONG KONG)"), KeyboardButton("COUNTRY: CHILE (CL)")],
             [KeyboardButton("🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄")]
         ]
         await update.message.reply_text("🌐 **SELECT YOUR COUNTRY:**", reply_markup=ReplyKeyboardMarkup(country_kb, resize_keyboard=True))
         return
 
-    if "HK" in text.upper() or "HONG KONG" in text.upper():
+    if text == "COUNTRY: HK (HONG KONG)":
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "hk"}})
-        await update.message.reply_text("✅ Country set: `HONG KONG (HK)` 🇭🇰", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
+        await update.message.reply_text("✅ Country set: `HONG KONG (HK)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
 
-    if "CHILE" in text.upper() or "CL" in text.upper():
+    if text == "COUNTRY: CHILE (CL)":
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "cl"}})
-        await update.message.reply_text("✅ Country set: `CHILE (CL)` 🇨🇱", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
+        await update.message.reply_text("✅ Country set: `CHILE (CL)`", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
 
-    # SERVICE SELECTION
+    # SERVICE SELECTION (FIXED MATCHING)
     if text == "📱 𝚂𝙴𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴":
         service_kb = [
             [KeyboardButton("𝚂𝙴𝚁𝚅𝙸𝙲𝙴: TG (𝚃𝙴𝙻𝙴𝙶𝚁𝙰𝙼)")],
@@ -356,7 +346,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         country = u_data.get("selected_country", "hk")
         service = u_data.get("selected_service", "tg")
         
-        # Dynamic Max Price Mapping
+        # Strict Dynamic Max Price Mapping
         if country == "hk" and service == "wa":
             max_price_limit = 0.07   # Locked for Hong Kong WhatsApp
         elif country == "cl" and service == "tg":
@@ -375,8 +365,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        flag = get_flag_emoji(country)
-        status_msg = await update.message.reply_text(f"⏳ `{country.upper()}` {flag} BUYING NUMBER... WAIT A FEW SECONDS.")
+        status_msg = await update.message.reply_text(f"⏳ `{country.upper()}` BUYING NUMBER... WAIT A FEW SECONDS.")
 
         res = buy_vak_number(service=service, country=country, max_price=max_price_limit)
 
@@ -394,7 +383,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"✅ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙱𝚄𝙸𝙻𝙳 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙻𝚈!**\n\n"
                 f"📱 **Number:** `<code>{phone_num}</code>`\n"
                 f"🆔 **ID Num:** `{id_num}`\n"
-                f"🌍 **Country:** `{country.upper()}` {flag}\n"
+                f"🌍 **Country:** `{country.upper()}`\n"
                 f"💬 **Service:** `{service.upper()}`\n"
                 f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝘾𝙀 𝙆𝘼𝙏𝘽𝙀)*\n\n"
                 f"⏳ *𝙾𝚃𝙿 𝙿𝙾𝚆𝙴𝚁 𝙹𝙾𝙽𝙽𝙾 𝙾𝙿𝙴𝙺𝙺𝙷𝙰 𝙺𝙾𝚁𝚄𝙽...*",
@@ -556,7 +545,7 @@ async def process_otp_success(context, id_num: str, otp: str):
     phone = order_info["phone"]
     msg_id = order_info["msg_id"]
     service_type = order_info.get("service", "tg").upper()
-    country_code = order_info.get("country", "hk").lower()
+    country_code = order_info.get("country", "hk").upper()
 
     users_col.update_one(
         {"user_id": uid},
@@ -586,10 +575,8 @@ async def process_otp_success(context, id_num: str, otp: str):
         await context.bot.send_message(chat_id=uid, text=success_text, parse_mode="HTML")
 
     masked_phone = mask_number(phone)
-    flag_emoji = get_flag_emoji(country_code)
-
     group_forward_msg = (
-        f"🌐 **COUNTRY:** `{country_code.upper()}` {flag_emoji}\n"
+        f"🌐 **COUNTRY:** `{country_code}`\n"
         f"📱 **𝙽𝚄𝙼𝙱𝙴𝚁:** `{masked_phone}`\n"
         f"🔑 **𝙾𝚃𝙿:** `{otp}`\n"
         f"💬 **Message:** `YOUR {service_type} CODE: {otp}`"
@@ -893,7 +880,7 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
     success_count = 0
     fail_count = 0
     
-    status_msg = await update.message.reply_text("⏳ Broadcast pathano hochhe...")
+    status_msg = await update.message.reply_text(f"⏳ **Broadcast Process Shuru Hoche... Total Users: {len(all_users)}**")
     
     for u in all_users:
         uid = u.get("user_id")
@@ -901,132 +888,128 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
             continue
         try:
             if update.message.photo:
-                photo_file = update.message.photo[-1].file_id
+                photo_file_id = update.message.photo[-1].file_id
                 caption_text = update.message.caption or ""
-                await context.bot.send_photo(chat_id=uid, photo=photo_file, caption=caption_text)
+                await context.bot.send_photo(chat_id=uid, photo=photo_file_id, caption=caption_text)
             else:
                 await context.bot.send_message(chat_id=uid, text=update.message.text)
             success_count += 1
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(0.05)  # Telegram Rate Limit Avoider
         except Exception:
             fail_count += 1
 
-    await status_msg.edit_text(f"✅ **Broadcast Completed!**\n\n🟢 Success: `{success_count}`\n🔴 Failed: `{fail_count}`", parse_mode="Markdown")
+    result_text = (
+        f"📢 **Broadcast Shes Huyeche!**\n\n"
+        f"✅ **Success:** `{success_count}` Users\n"
+        f"❌ **Failed/Blocked:** `{fail_count}` Users"
+    )
+    await status_msg.edit_text(result_text, parse_mode="Markdown")
     return ConversationHandler.END
 
-def main():
-    threading.Thread(target=run_flask, daemon=True).start()
+# Async Main Runner (Fixes Event Loop / RuntimeError)
+async def run_bot():
+    app = Application.builder().token(BOT_TOKEN).build()
 
-    if not BOT_TOKEN:
-        logging.error("❌ BOT_TOKEN is missing!")
-        return
-
-    application = Application.builder().token(BOT_TOKEN).build()
-
-    # Subscription Conversation Handler
-    sub_handler = ConversationHandler(
-        entry_points=[
-            CallbackQueryHandler(sub_start, pattern="^buy_sub_start$"),
-            CallbackQueryHandler(sub_bkash_selected, pattern="^pay_bkash_sub$")
-        ],
+    sub_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(sub_start, pattern="^buy_sub_start$")],
         states={
-            SUB_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, sub_amount_received)],
+            SUB_AMOUNT: [
+                CallbackQueryHandler(sub_bkash_selected, pattern="^pay_bkash_sub$"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, sub_amount_received)
+            ],
             SUB_TXID: [MessageHandler(filters.TEXT & ~filters.COMMAND, sub_txid_received)],
-            SUB_SCREENSHOT: [MessageHandler(filters.PHOTO, sub_screenshot_received)],
+            SUB_SCREENSHOT: [MessageHandler(filters.PHOTO, sub_screenshot_received)]
         },
-        fallbacks=[
-            CommandHandler("cancel", cancel_flow),
-            CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")
-        ]
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Deposit Conversation Handler
-    deposit_handler = ConversationHandler(
-        entry_points=[
-            MessageHandler(filters.Regex("^💵 𝙳𝙸𝙿𝙾𝚂𝙸𝚃$"), deposit_start),
-            CallbackQueryHandler(deposit_binance_selected, pattern="^pay_binance$")
-        ],
+    deposit_conv = ConversationHandler(
+        entry_points=[MessageHandler(filters.Regex("^💵 𝙳𝙸𝙿𝙾𝚂𝙸𝚃$"), deposit_start)],
         states={
-            WAITING_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_amount_received)],
+            WAITING_AMOUNT: [
+                CallbackQueryHandler(deposit_binance_selected, pattern="^pay_binance$"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_amount_received)
+            ],
             WAITING_TXID: [MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_txid_received)],
-            WAITING_SCREENSHOT: [MessageHandler(filters.PHOTO, deposit_screenshot_received)],
+            WAITING_SCREENSHOT: [MessageHandler(filters.PHOTO, deposit_screenshot_received)]
         },
-        fallbacks=[
-            CommandHandler("cancel", cancel_flow),
-            CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")
-        ]
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Admin Ban Handler
-    admin_ban_handler = ConversationHandler(
+    admin_ban_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_ban_start, pattern="^admin_ban_start$")],
         states={ADMIN_BAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_ban_process)]},
-        fallbacks=[CommandHandler("cancel", cancel_flow)]
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Admin Unban Handler
-    admin_unban_handler = ConversationHandler(
+    admin_unban_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_unban_start, pattern="^admin_unban_start$")],
         states={ADMIN_UNBAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_unban_process)]},
-        fallbacks=[CommandHandler("cancel", cancel_flow)]
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Admin Add Balance Handler
-    admin_add_bal_handler = ConversationHandler(
+    admin_add_bal_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_add_bal_start, pattern="^admin_add_bal_start$")],
         states={
             ADMIN_ADD_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_user)],
             ADMIN_ADD_BAL_AMT: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_amt)]
         },
-        fallbacks=[CommandHandler("cancel", cancel_flow)]
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Admin Zero Balance Handler
-    admin_zero_bal_handler = ConversationHandler(
+    admin_zero_bal_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_zero_bal_start, pattern="^admin_zero_bal_start$")],
         states={ADMIN_ZERO_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_zero_bal_process)]},
-        fallbacks=[CommandHandler("cancel", cancel_flow)]
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Admin Rate Set Handlers
-    admin_rate_wa_handler = ConversationHandler(
+    admin_rate_wa_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_rate_wa_start, pattern="^admin_rate_wa_start$")],
         states={ADMIN_RATE_WA_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_rate_wa_process)]},
-        fallbacks=[CommandHandler("cancel", cancel_flow)]
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    admin_rate_tg_handler = ConversationHandler(
+    admin_rate_tg_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_rate_tg_start, pattern="^admin_rate_tg_start$")],
         states={ADMIN_RATE_TG_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_rate_tg_process)]},
-        fallbacks=[CommandHandler("cancel", cancel_flow)]
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Admin Broadcast Handler
-    admin_broadcast_handler = ConversationHandler(
+    admin_broadcast_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_broadcast_start, pattern="^admin_broadcast_start$")],
         states={ADMIN_BROADCAST: [MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, admin_broadcast_process)]},
-        fallbacks=[
-            CommandHandler("cancel", cancel_flow),
-            CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")
-        ]
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    # Register Handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(sub_handler)
-    application.add_handler(deposit_handler)
-    application.add_handler(admin_ban_handler)
-    application.add_handler(admin_unban_handler)
-    application.add_handler(admin_add_bal_handler)
-    application.add_handler(admin_zero_bal_handler)
-    application.add_handler(admin_rate_wa_handler)
-    application.add_handler(admin_rate_tg_handler)
-    application.add_handler(admin_broadcast_handler)
-    application.add_handler(CallbackQueryHandler(handle_callbacks))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_messages))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(sub_conv)
+    app.add_handler(deposit_conv)
+    app.add_handler(admin_ban_conv)
+    app.add_handler(admin_unban_conv)
+    app.add_handler(admin_add_bal_conv)
+    app.add_handler(admin_zero_bal_conv)
+    app.add_handler(admin_rate_wa_conv)
+    app.add_handler(admin_rate_tg_conv)
+    app.add_handler(admin_broadcast_conv)
+    app.add_handler(CallbackQueryHandler(handle_callbacks))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_messages))
 
-    logging.info("🚀 Bot Started Successfully!")
-    application.run_polling()
+    async with app:
+        await app.start()
+        await app.updater.start_polling()
+        logging.info("🤖 Bot startup sequence completed. Polling started successfully.")
+        await asyncio.Event().wait()
+
+def main():
+    threading.Thread(target=run_flask, daemon=True).start()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(run_bot())
+    except KeyboardInterrupt:
+        pass
+    finally:
+        loop.close()
 
 if __name__ == "__main__":
     main()
