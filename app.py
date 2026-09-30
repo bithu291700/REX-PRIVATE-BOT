@@ -575,8 +575,12 @@ async def process_otp_success(context, id_num: str, otp: str):
         await context.bot.send_message(chat_id=uid, text=success_text, parse_mode="HTML")
 
     masked_phone = mask_number(phone)
+    
+    # Flag emoji selection
+    flag_emoji = "🇭🇰" if country_code == "HK" else ("🇨🇱" if country_code == "CL" else "🌐")
+
     group_forward_msg = (
-        f"🌐 **COUNTRY:** `{country_code}`\n"
+        f"🌐 **COUNTRY:** `{country_code}` {flag_emoji}\n"
         f"📱 **𝙽𝚄𝙼𝙱𝙴𝚁:** `{masked_phone}`\n"
         f"🔑 **𝙾𝚃𝙿:** `{otp}`\n"
         f"💬 **Message:** `YOUR {service_type} CODE: {otp}`"
@@ -880,7 +884,7 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
     success_count = 0
     fail_count = 0
     
-    status_msg = await update.message.reply_text(f"⏳ **Broadcast Process Shuru Hoche... Total Users: {len(all_users)}**")
+    status_msg = await update.message.reply_text("⏳ Broadcast pathano hochhe...")
     
     for u in all_users:
         uid = u.get("user_id")
@@ -888,128 +892,132 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
             continue
         try:
             if update.message.photo:
-                photo_file_id = update.message.photo[-1].file_id
+                photo_file = update.message.photo[-1].file_id
                 caption_text = update.message.caption or ""
-                await context.bot.send_photo(chat_id=uid, photo=photo_file_id, caption=caption_text)
+                await context.bot.send_photo(chat_id=uid, photo=photo_file, caption=caption_text)
             else:
                 await context.bot.send_message(chat_id=uid, text=update.message.text)
             success_count += 1
-            await asyncio.sleep(0.05)  # Telegram Rate Limit Avoider
+            await asyncio.sleep(0.05)
         except Exception:
             fail_count += 1
 
-    result_text = (
-        f"📢 **Broadcast Shes Huyeche!**\n\n"
-        f"✅ **Success:** `{success_count}` Users\n"
-        f"❌ **Failed/Blocked:** `{fail_count}` Users"
-    )
-    await status_msg.edit_text(result_text, parse_mode="Markdown")
+    await status_msg.edit_text(f"✅ **Broadcast Completed!**\n\n🟢 Success: `{success_count}`\n🔴 Failed: `{fail_count}`", parse_mode="Markdown")
     return ConversationHandler.END
 
-# Async Main Runner (Fixes Event Loop / RuntimeError)
-async def run_bot():
-    app = Application.builder().token(BOT_TOKEN).build()
+def main():
+    threading.Thread(target=run_flask, daemon=True).start()
 
-    sub_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(sub_start, pattern="^buy_sub_start$")],
+    if not BOT_TOKEN:
+        logging.error("❌ BOT_TOKEN is missing!")
+        return
+
+    application = Application.builder().token(BOT_TOKEN).build()
+
+    # Subscription Conversation Handler
+    sub_handler = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(sub_start, pattern="^buy_sub_start$"),
+            CallbackQueryHandler(sub_bkash_selected, pattern="^pay_bkash_sub$")
+        ],
         states={
-            SUB_AMOUNT: [
-                CallbackQueryHandler(sub_bkash_selected, pattern="^pay_bkash_sub$"),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, sub_amount_received)
-            ],
+            SUB_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, sub_amount_received)],
             SUB_TXID: [MessageHandler(filters.TEXT & ~filters.COMMAND, sub_txid_received)],
-            SUB_SCREENSHOT: [MessageHandler(filters.PHOTO, sub_screenshot_received)]
+            SUB_SCREENSHOT: [MessageHandler(filters.PHOTO, sub_screenshot_received)],
         },
-        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+        fallbacks=[
+            CommandHandler("cancel", cancel_flow),
+            CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")
+        ]
     )
 
-    deposit_conv = ConversationHandler(
-        entry_points=[MessageHandler(filters.Regex("^💵 𝙳𝙸𝙿𝙾𝚂𝙸𝚃$"), deposit_start)],
+    # Deposit Conversation Handler
+    deposit_handler = ConversationHandler(
+        entry_points=[
+            MessageHandler(filters.Regex("^💵 𝙳𝙸𝙿𝙾𝚂𝙸𝚃$"), deposit_start),
+            CallbackQueryHandler(deposit_binance_selected, pattern="^pay_binance$")
+        ],
         states={
-            WAITING_AMOUNT: [
-                CallbackQueryHandler(deposit_binance_selected, pattern="^pay_binance$"),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_amount_received)
-            ],
+            WAITING_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_amount_received)],
             WAITING_TXID: [MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_txid_received)],
-            WAITING_SCREENSHOT: [MessageHandler(filters.PHOTO, deposit_screenshot_received)]
+            WAITING_SCREENSHOT: [MessageHandler(filters.PHOTO, deposit_screenshot_received)],
         },
-        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+        fallbacks=[
+            CommandHandler("cancel", cancel_flow),
+            CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")
+        ]
     )
 
-    admin_ban_conv = ConversationHandler(
+    # Admin Ban Handler
+    admin_ban_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_ban_start, pattern="^admin_ban_start$")],
         states={ADMIN_BAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_ban_process)]},
-        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+        fallbacks=[CommandHandler("cancel", cancel_flow)]
     )
 
-    admin_unban_conv = ConversationHandler(
+    # Admin Unban Handler
+    admin_unban_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_unban_start, pattern="^admin_unban_start$")],
         states={ADMIN_UNBAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_unban_process)]},
-        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+        fallbacks=[CommandHandler("cancel", cancel_flow)]
     )
 
-    admin_add_bal_conv = ConversationHandler(
+    # Admin Add Balance Handler
+    admin_add_bal_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_add_bal_start, pattern="^admin_add_bal_start$")],
         states={
             ADMIN_ADD_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_user)],
             ADMIN_ADD_BAL_AMT: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_amt)]
         },
-        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+        fallbacks=[CommandHandler("cancel", cancel_flow)]
     )
 
-    admin_zero_bal_conv = ConversationHandler(
+    # Admin Zero Balance Handler
+    admin_zero_bal_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_zero_bal_start, pattern="^admin_zero_bal_start$")],
         states={ADMIN_ZERO_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_zero_bal_process)]},
-        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+        fallbacks=[CommandHandler("cancel", cancel_flow)]
     )
 
-    admin_rate_wa_conv = ConversationHandler(
+    # Admin Rate Set Handlers
+    admin_rate_wa_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_rate_wa_start, pattern="^admin_rate_wa_start$")],
         states={ADMIN_RATE_WA_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_rate_wa_process)]},
-        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+        fallbacks=[CommandHandler("cancel", cancel_flow)]
     )
 
-    admin_rate_tg_conv = ConversationHandler(
+    admin_rate_tg_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_rate_tg_start, pattern="^admin_rate_tg_start$")],
         states={ADMIN_RATE_TG_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_rate_tg_process)]},
-        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+        fallbacks=[CommandHandler("cancel", cancel_flow)]
     )
 
-    admin_broadcast_conv = ConversationHandler(
+    # Admin Broadcast Handler
+    admin_broadcast_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_broadcast_start, pattern="^admin_broadcast_start$")],
         states={ADMIN_BROADCAST: [MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, admin_broadcast_process)]},
-        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+        fallbacks=[
+            CommandHandler("cancel", cancel_flow),
+            CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")
+        ]
     )
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(sub_conv)
-    app.add_handler(deposit_conv)
-    app.add_handler(admin_ban_conv)
-    app.add_handler(admin_unban_conv)
-    app.add_handler(admin_add_bal_conv)
-    app.add_handler(admin_zero_bal_conv)
-    app.add_handler(admin_rate_wa_conv)
-    app.add_handler(admin_rate_tg_conv)
-    app.add_handler(admin_broadcast_conv)
-    app.add_handler(CallbackQueryHandler(handle_callbacks))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_messages))
+    # Register Handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(sub_handler)
+    application.add_handler(deposit_handler)
+    application.add_handler(admin_ban_handler)
+    application.add_handler(admin_unban_handler)
+    application.add_handler(admin_add_bal_handler)
+    application.add_handler(admin_zero_bal_handler)
+    application.add_handler(admin_rate_wa_handler)
+    application.add_handler(admin_rate_tg_handler)
+    application.add_handler(admin_broadcast_handler)
+    application.add_handler(CallbackQueryHandler(handle_callbacks))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_messages))
 
-    async with app:
-        await app.start()
-        await app.updater.start_polling()
-        logging.info("🤖 Bot startup sequence completed. Polling started successfully.")
-        await asyncio.Event().wait()
-
-def main():
-    threading.Thread(target=run_flask, daemon=True).start()
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(run_bot())
-    except KeyboardInterrupt:
-        pass
-    finally:
-        loop.close()
+    logging.info("🚀 Bot Started Successfully!")
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
