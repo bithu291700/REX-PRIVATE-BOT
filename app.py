@@ -65,6 +65,7 @@ active_orders = {}
 # Conversation States
 WAITING_AMOUNT, WAITING_TXID, WAITING_SCREENSHOT = range(3)
 SUB_AMOUNT, SUB_TXID, SUB_SCREENSHOT = range(3, 6)
+WAIT_GROUP_USERNAME, WAIT_GROUP_SCREENSHOT = range(6, 8)
 (
     ADMIN_BAN,
     ADMIN_UNBAN,
@@ -76,7 +77,7 @@ SUB_AMOUNT, SUB_TXID, SUB_SCREENSHOT = range(3, 6)
     ADMIN_RATE_TG_HK_SET,
     ADMIN_RATE_TG_CL_SET,
     ADMIN_BROADCAST,
-) = range(6, 16)
+) = range(8, 18)
 
 # Helper Functions
 def get_country_flag(country_code: str) -> str:
@@ -110,7 +111,8 @@ def get_or_create_user(user_id: int, full_name: str = "User"):
             "selected_country": "hk",  # Default Hong Kong (hk)
             "selected_service": "tg",  # Default Telegram (tg)
             "is_banned": False,
-            "subscription_expiry": None
+            "subscription_expiry": None,
+            "is_group_verified": False
         }
         users_col.insert_one(user_data)
         return user_data
@@ -125,7 +127,6 @@ def get_rate(service_code: str = "tg", country_code: str = "hk"):
     if doc and "rates" in doc and key in doc["rates"]:
         return float(doc["rates"][key])
     
-    # Default fallbacks if rate is not set yet
     defaults = {
         "wa_hk": 0.10,
         "wa_cl": 0.10,
@@ -239,6 +240,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not is_subscribed(user_id):
+        if not u_data.get("is_group_verified", False):
+            verify_kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ Verify Group Membership", callback_data="start_group_verify")]
+            ])
+            msg = (
+                f"👋 **Hello {user.full_name}!**\n\n"
+                f"❌ 𝚈𝙾𝚄 𝙳𝙾𝙽'𝚃 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚃𝙷𝙴 𝙱𝙾𝚃!\n"
+                f"ʙᴏᴛ ʙᴇʙᴏʜᴀʀ ᴋᴏʀᴛᴇ ᴄʜᴀɪʟᴇ prothomti amader **Private Group**-e join thakte hobe.\n\n"
+                f"📌 Nicher button-e click kore apnar group join-er proof (Username & Screenshot) admin-er kache pathan:"
+            )
+            await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
+            await update.message.reply_text("👇 **Verification:**", reply_markup=verify_kb)
+            return
+
         sub_kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("💳 𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽(30 Tk / 3 Days)", callback_data="buy_sub_start")]
         ])
@@ -288,6 +303,14 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not is_subscribed(user_id):
+        if not u_data.get("is_group_verified", False):
+            verify_kb = InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ Verify Group Membership", callback_data="start_group_verify")]
+            ])
+            await update.message.reply_text("❌ Apnake prothome private group verification korte hobe.", reply_markup=ReplyKeyboardRemove())
+            await update.message.reply_text("👇 **Verification:**", reply_markup=verify_kb)
+            return
+
         sub_kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("💳 𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽(30 Tk / 3 Days)", callback_data="buy_sub_start")]
         ])
@@ -370,19 +393,17 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         service = u_data.get("selected_service", "tg")
         country_flag = get_country_flag(country)
         
-        # Strict Dynamic Max Price Mapping
         if country == "hk" and service == "wa":
-            max_price_limit = 0.07   # Locked for Hong Kong WhatsApp
+            max_price_limit = 0.07
         elif country == "cl" and service == "wa":
-            max_price_limit = 0.079  # Locked for Chile WhatsApp
+            max_price_limit = 0.079
         elif country == "cl" and service == "tg":
-            max_price_limit = 0.087  # Locked for Chile Telegram
+            max_price_limit = 0.087
         elif country == "cl":
             max_price_limit = 0.087
         else:
-            max_price_limit = 0.075  # Default for HK TG
+            max_price_limit = 0.075
         
-        # Fetching dynamic admin-set rate for user's selected Service + Country
         bot_rate = get_rate(service_code=service, country_code=country)
         user_bal = u_data.get("balance", 0.0)
 
@@ -407,7 +428,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
 
             sent_msg = await update.message.reply_text(
-                f"✅ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙱𝚄𝙸𝙻𝙳 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙻𝚈!**\n\n"
+                f"✅ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙱𝚄𝙸𝙻𝙳 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝚈!**\n\n"
                 f"📱 **Number:** `<code>{phone_num}</code>`\n"
                 f"🆔 **ID Num:** `{id_num}`\n"
                 f"🌍 **Country:** `{country.upper()}` {country_flag}\n"
@@ -449,7 +470,7 @@ async def send_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
         [InlineKeyboardButton("💵 SET HK WA PRICE", callback_data="admin_rate_wa_hk_start"), InlineKeyboardButton("💵 SET CL WA PRICE", callback_data="admin_rate_wa_cl_start")],
         [InlineKeyboardButton("💵 SET HK TG PRICE", callback_data="admin_rate_tg_hk_start"), InlineKeyboardButton("💵 SET CL TG PRICE", callback_data="admin_rate_tg_cl_start")],
-        [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝗖𝗘", callback_data="admin_zero_bal_start")],
+        [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝙻𝙰𝗡𝗖𝗘", callback_data="admin_zero_bal_start")],
         [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝚃 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
         [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
     ])
@@ -500,9 +521,9 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
             [InlineKeyboardButton("💵 SET HK WA PRICE", callback_data="admin_rate_wa_hk_start"), InlineKeyboardButton("💵 SET CL WA PRICE", callback_data="admin_rate_wa_cl_start")],
             [InlineKeyboardButton("💵 SET HK TG PRICE", callback_data="admin_rate_tg_hk_start"), InlineKeyboardButton("💵 SET CL TG PRICE", callback_data="admin_rate_tg_cl_start")],
-            [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝗖𝗘", callback_data="admin_zero_bal_start")],
+            [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝙻𝙰𝗡𝙲𝗘", callback_data="admin_zero_bal_start")],
             [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝚃 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
-            [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
+            [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝚄𝗦: {status_str}", callback_data="admin_toggle_bot")]
         ])
         try:
             await query.edit_message_reply_markup(reply_markup=admin_kb)
@@ -563,6 +584,65 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_id = int(data.split("_")[2])
         await query.edit_message_caption(caption=query.message.caption + "\n\n❌ **Subscription Rejected!**")
         await context.bot.send_message(chat_id=target_id, text="❌ Apnar subscription request-ti batil kora hoyeche.")
+
+    elif data.startswith("verify_approve_"):
+        target_id = int(data.split("_")[2])
+        users_col.update_one({"user_id": target_id}, {"$set": {"is_group_verified": True}})
+        await query.edit_message_caption(caption=query.message.caption + "\n\n✅ **Group Membership Verified!**")
+        sub_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💳 𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽(30 Tk / 3 Days)", callback_data="buy_sub_start")]
+        ])
+        await context.bot.send_message(
+            chat_id=target_id,
+            text="🎉 **Apnar Group Verification Admin কর্তৃক Approved হয়েছে!** এখন আপনি নিচের বাটন থেকে সাবস্ক্রিপশন কিনতে পারবেন:",
+            reply_markup=sub_kb
+        )
+
+    elif data.startswith("verify_reject_"):
+        target_id = int(data.split("_")[2])
+        users_col.update_one({"user_id": target_id}, {"$set": {"is_group_verified": False}})
+        await query.edit_message_caption(caption=query.message.caption + "\n\n❌ **Group Membership Unverified!**")
+        await context.bot.send_message(
+            chat_id=target_id,
+            text="❌ আপনার গ্রুপ ভেরিফিকেশন প্রুফ সঠিক পাওয়া যায়নি। দয়া করে সঠিক স্ক্রিনশট ও ইউজারনেম দিয়ে পুনরায় চেষ্টা করুন।"
+        )
+
+# Group Verification Conversation Handlers
+async def group_verify_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await query.message.reply_text("✍️ **Doya kore apnar Telegram Username-ti likhe pathan (jemon: `@username`):**", reply_markup=cancel_kb)
+    return WAIT_GROUP_USERNAME
+
+async def group_verify_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    username = update.message.text.strip()
+    context.user_data["verify_username"] = username
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await update.message.reply_text("📸 **Ekhon apnar Private Group-e add achen tar Screenshot (Photo) pathan:**", reply_markup=cancel_kb)
+    return WAIT_GROUP_SCREENSHOT
+
+async def group_verify_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    photo = update.message.photo[-1]
+    username = context.user_data.get("verify_username")
+
+    admin_kb = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("✅ Verified", callback_data=f"verify_approve_{user.id}"),
+            InlineKeyboardButton("❌ Unverified", callback_data=f"verify_reject_{user.id}")
+        ]
+    ])
+
+    caption = (
+        f"🔍 **New Private Group Verification Request!**\n\n"
+        f"👤 **User:** {user.full_name} (`{user.id}`)\n"
+        f"📌 **Username:** `{username}`"
+    )
+
+    await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo.file_id, caption=caption, parse_mode="Markdown", reply_markup=admin_kb)
+    await update.message.reply_text("✅ **Apnar verification request admin-er kache pathano hoyeche!** Admin check kore verify korlei apnake subscription option dewa hobe.")
+    return ConversationHandler.END
 
 async def process_otp_success(context, id_num: str, otp: str):
     if id_num not in active_orders:
@@ -953,7 +1033,7 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
             else:
                 await context.bot.send_message(chat_id=uid, text=update.message.text)
             success_count += 1
-            await asyncio.sleep(0.05)  # Telegram Rate Limit Avoider
+            await asyncio.sleep(0.05)
         except Exception:
             fail_count += 1
 
@@ -965,9 +1045,18 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
     await status_msg.edit_text(result_text, parse_mode="Markdown")
     return ConversationHandler.END
 
-# Async Main Runner (Fixes Event Loop / RuntimeError)
+# Async Main Runner
 async def run_bot():
     app = Application.builder().token(BOT_TOKEN).build()
+
+    group_verify_conv = ConversationHandler(
+        entry_points=[CallbackQueryHandler(group_verify_start, pattern="^start_group_verify$")],
+        states={
+            WAIT_GROUP_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, group_verify_username)],
+            WAIT_GROUP_SCREENSHOT: [MessageHandler(filters.PHOTO, group_verify_screenshot)]
+        },
+        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+    )
 
     sub_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(sub_start, pattern="^buy_sub_start$")],
@@ -1053,6 +1142,7 @@ async def run_bot():
     )
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(group_verify_conv)
     app.add_handler(sub_conv)
     app.add_handler(deposit_conv)
     app.add_handler(admin_ban_conv)
