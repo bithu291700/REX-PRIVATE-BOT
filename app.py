@@ -393,7 +393,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_has_active = any(order.get("user_id") == user_id for order in active_orders.values())
         if user_has_active:
             await update.message.reply_text(
-                "⚠️ **AGE AGER KENA NUMBER CANCEL KORUN!**\NAHOLE NUMBER KINTE PARBEN NAH।"
+                "⚠️ **অলরেডি একটি নম্বর কেনা রয়েছে!**\nনতুন নম্বর কেনার আগে আগের নম্বরটি ব্যবহার সম্পন্ন করুন অথবা Cancel করুন।"
             )
             return
 
