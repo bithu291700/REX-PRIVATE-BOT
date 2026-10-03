@@ -389,11 +389,10 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if text == "🛒 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁":
-        # ⚠️ UPDATED LOGIC: Check if user already has an active order
         user_has_active = any(order.get("user_id") == user_id for order in active_orders.values())
         if user_has_active:
             await update.message.reply_text(
-                "⚠️ **অলরেডি একটি নম্বর কেনা রয়েছে!**\nনতুন নম্বর কেনার আগে আগের নম্বরটি ব্যবহার সম্পন্ন করুন অথবা Cancel করুন।"
+                "⚠️ **অলরেডি একটি নম্বর কেনা রয়েছে!**\nনতুন নম্বর কেনার আগে আগের নম্বরটি ব্যবহার সম্পন্ন করুন অথবা Cancel করুন."
             )
             return
 
@@ -478,7 +477,7 @@ async def send_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
         [InlineKeyboardButton("💵 SET HK WA PRICE", callback_data="admin_rate_wa_hk_start"), InlineKeyboardButton("💵 SET CL WA PRICE", callback_data="admin_rate_wa_cl_start")],
         [InlineKeyboardButton("💵 SET HK TG PRICE", callback_data="admin_rate_tg_hk_start"), InlineKeyboardButton("💵 SET CL TG PRICE", callback_data="admin_rate_tg_cl_start")],
-        [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝙻𝙰𝗡𝙲𝗘", callback_data="admin_zero_bal_start")],
+        [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝙰𝗡𝙲𝗘", callback_data="admin_zero_bal_start")],
         [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝚃 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
         [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
     ])
@@ -529,7 +528,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
             [InlineKeyboardButton("💵 SET HK WA PRICE", callback_data="admin_rate_wa_hk_start"), InlineKeyboardButton("💵 SET CL WA PRICE", callback_data="admin_rate_wa_cl_start")],
             [InlineKeyboardButton("💵 SET HK TG PRICE", callback_data="admin_rate_tg_hk_start"), InlineKeyboardButton("💵 SET CL TG PRICE", callback_data="admin_rate_tg_cl_start")],
-            [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝙻𝙰𝗡𝙲𝗘", callback_data="admin_zero_bal_start")],
+            [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝙰Ն𝙲𝗘", callback_data="admin_zero_bal_start")],
             [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝚃 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
             [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
         ])
@@ -778,7 +777,7 @@ async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_
     ])
 
     caption = (
-        f"🔔 **𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚁𝙴𝚀𝚄𝙴𝚂𝚃!**\n\n"
+        f"🔔 **𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚁𝙴𝙹𝚄𝙴𝚂𝚃!**\n\n"
         f"👤 **𝚄𝚂𝙴𝚁:** {user.full_name} (`{user.id}`)\n"
         f"💰 **𝙰𝙼𝙾𝚄𝙽𝚃:** `30 Tk`\n"
         f"🧾 **𝚃𝚁𝚇𝙸𝙳:** `{txid}`"
@@ -1014,7 +1013,7 @@ async def admin_rate_tg_cl_process(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text("❌ Invalid Rate Format!")
     return ConversationHandler.END
 
-# ADMIN BROADCAST HANDLERS
+# ADMIN BROADCAST HANDLERS (UPDATED TO PRESERVE PREMIUM EMOJI / ENTITIES)
 async def admin_broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -1037,9 +1036,21 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
             if update.message.photo:
                 photo_file_id = update.message.photo[-1].file_id
                 caption_text = update.message.caption or ""
-                await context.bot.send_photo(chat_id=uid, photo=photo_file_id, caption=caption_text)
+                caption_entities = update.message.caption_entities
+                await context.bot.send_photo(
+                    chat_id=uid, 
+                    photo=photo_file_id, 
+                    caption=caption_text,
+                    caption_entities=caption_entities
+                )
             else:
-                await context.bot.send_message(chat_id=uid, text=update.message.text)
+                text_content = update.message.text or ""
+                text_entities = update.message.entities
+                await context.bot.send_message(
+                    chat_id=uid, 
+                    text=text_content,
+                    entities=text_entities
+                )
             success_count += 1
             await asyncio.sleep(0.05)
         except Exception:
@@ -1138,7 +1149,7 @@ async def run_bot():
     )
 
     admin_rate_tg_cl_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(admin_rate_tg_cl_start, pattern="^admin_rate_tg_cl_start$")],
+        entry_points=[CallbackQueryHandler(admin_rate_tg_cl_start,_pattern="^admin_rate_tg_cl_start$") if "admin_rate_tg_cl_start" else CallbackQueryHandler(admin_rate_tg_cl_start, pattern="^admin_rate_tg_cl_start$")],
         states={ADMIN_RATE_TG_CL_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_rate_tg_cl_process)]},
         fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
@@ -1177,6 +1188,7 @@ def main():
     asyncio.set_event_loop(loop)
     try:
         loop.run_until_complete(run_bot())
+    questions = None
     except KeyboardInterrupt:
         pass
     finally:
