@@ -62,27 +62,20 @@ def run_flask():
 # In-Memory Active Orders
 active_orders = {}
 
-# Conversation States
-WAITING_AMOUNT, WAITING_TXID, WAITING_SCREENSHOT = range(3)
-SUB_AMOUNT, SUB_TXID, SUB_SCREENSHOT = range(3, 6)
-WAIT_GROUP_USERNAME, WAIT_GROUP_SCREENSHOT = range(6, 8)
+# Conversation States (Fixed and separated cleanly to avoid overlapping)
 (
-    ADMIN_BAN,
-    ADMIN_UNBAN,
-    ADMIN_ADD_BAL_USER,
-    ADMIN_ADD_BAL_AMT,
+    WAITING_AMOUNT, WAITING_TXID, WAITING_SCREENSHOT,
+    SUB_AMOUNT, SUB_TXID, SUB_SCREENSHOT,
+    WAIT_GROUP_USERNAME, WAIT_GROUP_SCREENSHOT,
+    ADMIN_BAN, ADMIN_UNBAN,
+    ADMIN_ADD_BAL_USER, ADMIN_ADD_BAL_AMT,
     ADMIN_ZERO_BAL_USER,
-    ADMIN_RATE_WA_HK_SET,
-    ADMIN_RATE_WA_CL_SET,
-    ADMIN_RATE_TG_HK_SET,
-    ADMIN_RATE_TG_CL_SET,
-    ADMIN_BROADCAST,
-) = range(8, 18)
+    ADMIN_RATE_WA_HK_SET, ADMIN_RATE_WA_CL_SET,
+    ADMIN_RATE_TG_HK_SET, ADMIN_RATE_TG_CL_SET,
+    ADMIN_BROADCAST
+) = range(19)
 
 # Helper Functions
-
-# Telegram Premium / Custom Emoji IDs supplied by the bot owner.
-# These are used only where Telegram supports custom emoji entities (message text/captions).
 CUSTOM_EMOJI_IDS = {
     1: "5409048419211682843",
     2: "5206607081334906820",
@@ -122,7 +115,6 @@ CUSTOM_EMOJI_IDS = {
 }
 
 def custom_emoji(number: int, fallback: str = "•") -> str:
-    """Return Telegram Bot API HTML for one Premium/custom emoji."""
     emoji_id = CUSTOM_EMOJI_IDS.get(number)
     if not emoji_id:
         return fallback
@@ -156,8 +148,8 @@ def get_or_create_user(user_id: int, full_name: str = "User"):
             "full_name": full_name,
             "balance": 0.0,
             "otp_count": 0,
-            "selected_country": "hk",  # Default Hong Kong (hk)
-            "selected_service": "tg",  # Default Telegram (tg)
+            "selected_country": "hk",
+            "selected_service": "tg",
             "is_banned": False,
             "subscription_expiry": None,
             "is_group_verified": False
@@ -214,7 +206,6 @@ def is_subscribed(user_id: int) -> bool:
             return True
     return False
 
-# Keyboards
 def get_main_keyboard(user_id):
     keyboard = [
         [KeyboardButton("💳 𝙰𝙲𝙲𝙾𝚄𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴"), KeyboardButton("🛒 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁")],
@@ -276,7 +267,6 @@ def fetch_otp_code(id_num: str):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
-
     u_data = get_or_create_user(user_id, user.full_name)
 
     if u_data.get("is_banned", False):
@@ -339,7 +329,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
-
     u_data = get_or_create_user(user_id, user.full_name)
 
     if u_data.get("is_banned", False):
@@ -393,7 +382,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(profile_msg, parse_mode="Markdown")
         return
 
-    # COUNTRY SELECTION
     if text in ["🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈", "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂"]:
         country_kb = [
             [KeyboardButton("COUNTRY: HK 🇭🇰 (HONG KONG)"), KeyboardButton("COUNTRY: CHILE 🇨🇱 (CL)")],
@@ -412,7 +400,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("✅ Country set: `CHILE (CL)` 🇨🇱", parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
         return
 
-    # SERVICE SELECTION
     if text == "📱 𝚂𝙴𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴":
         service_kb = [
             [KeyboardButton("𝚂𝙴𝚁𝚅𝙸𝙲𝙴: TG (𝚃𝙴𝙻𝙴𝙶𝚁𝙰𝙼)")],
@@ -525,7 +512,7 @@ async def send_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
         [InlineKeyboardButton("💵 SET HK WA PRICE", callback_data="admin_rate_wa_hk_start"), InlineKeyboardButton("💵 SET CL WA PRICE", callback_data="admin_rate_wa_cl_start")],
         [InlineKeyboardButton("💵 SET HK TG PRICE", callback_data="admin_rate_tg_hk_start"), InlineKeyboardButton("💵 SET CL TG PRICE", callback_data="admin_rate_tg_cl_start")],
-        [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝙰𝙽𝙲𝙴", callback_data="admin_zero_bal_start")],
+        [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝙰𝙻𝙰𝙽𝙲𝙴", callback_data="admin_zero_bal_start")],
         [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝚃 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
         [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
     ])
@@ -910,7 +897,10 @@ async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.callback_query:
         query = update.callback_query
         await query.answer()
-        await query.message.edit_text("❌ Process batil kora hoyeche.")
+        try:
+            await query.message.edit_text("❌ Process batil kora hoyeche.")
+        except Exception:
+            pass
     elif update.message:
         await update.message.reply_text("❌ Process batil kora hoyeche.")
     return ConversationHandler.END
@@ -918,7 +908,8 @@ async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_ban_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("🚫 **Banned korte chawa User ID-ti likhe pathan:**")
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await query.message.reply_text("🚫 **Banned korte chawa User ID-ti likhe pathan:**", reply_markup=cancel_kb)
     return ADMIN_BAN
 
 async def admin_ban_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -933,7 +924,8 @@ async def admin_ban_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_unban_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("✅ **Unban korte chawa User ID-ti likhe pathan:**")
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await query.message.reply_text("✅ **Unban korte chawa User ID-ti likhe pathan:**", reply_markup=cancel_kb)
     return ADMIN_UNBAN
 
 async def admin_unban_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -948,14 +940,16 @@ async def admin_unban_process(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def admin_add_bal_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("➕ **Balance add korte chawa User ID-ti pathan:**")
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await query.message.reply_text("➕ **Balance add korte chawa User ID-ti pathan:**", reply_markup=cancel_kb)
     return ADMIN_ADD_BAL_USER
 
 async def admin_add_bal_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         uid = int(update.message.text.strip())
         context.user_data["target_add_uid"] = uid
-        await update.message.reply_text(f"💰 **User `{uid}`-er jonno koto USDT balance add korben ta likhun:**", parse_mode="Markdown")
+        cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+        await update.message.reply_text(f"💰 **User `{uid}`-er jonno koto USDT balance add korben ta likhun:**", parse_mode="Markdown", reply_markup=cancel_kb)
         return ADMIN_ADD_BAL_AMT
     except ValueError:
         await update.message.reply_text("❌ Invalid User ID.")
@@ -979,7 +973,8 @@ async def admin_add_bal_amt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def admin_zero_bal_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("🔄 **Je user-er balance 0 (zero) korte chan, tar User ID-ti pathan:**", parse_mode="Markdown")
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await query.message.reply_text("🔄 **Je user-er balance 0 (zero) korte chan, tar User ID-ti pathan:**", parse_mode="Markdown", reply_markup=cancel_kb)
     return ADMIN_ZERO_BAL_USER
 
 async def admin_zero_bal_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1000,11 +995,11 @@ async def admin_zero_bal_process(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text("❌ Invalid User ID! Sothik shongkha likhun.")
     return ConversationHandler.END
 
-# ADMIN RATE SETTERS FOR HK & CHILE
 async def admin_rate_wa_hk_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("💵 **Hong Kong (HK) WhatsApp (WA)-er notun Bot Rate USDT-te likhun (jemon: `0.075` ba `0.10`):**")
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await query.message.reply_text("💵 **Hong Kong (HK) WhatsApp (WA)-er notun Bot Rate USDT-te likhun (jemon: `0.075` ba `0.10`):**", reply_markup=cancel_kb)
     return ADMIN_RATE_WA_HK_SET
 
 async def admin_rate_wa_hk_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1019,7 +1014,8 @@ async def admin_rate_wa_hk_process(update: Update, context: ContextTypes.DEFAULT
 async def admin_rate_wa_cl_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("💵 **Chile (CL) WhatsApp (WA)-er notun Bot Rate USDT-te likhun (jemon: `0.087` ba `0.10`):**")
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await query.message.reply_text("💵 **Chile (CL) WhatsApp (WA)-er notun Bot Rate USDT-te likhun (jemon: `0.087` ba `0.10`):**", reply_markup=cancel_kb)
     return ADMIN_RATE_WA_CL_SET
 
 async def admin_rate_wa_cl_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1034,7 +1030,8 @@ async def admin_rate_wa_cl_process(update: Update, context: ContextTypes.DEFAULT
 async def admin_rate_tg_hk_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("💵 **Hong Kong (HK) Telegram (TG)-er notun Bot Rate USDT-te likhun (jemon: `0.10` ba `0.12`):**")
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await query.message.reply_text("💵 **Hong Kong (HK) Telegram (TG)-er notun Bot Rate USDT-te likhun (jemon: `0.10` ba `0.12`):**", reply_markup=cancel_kb)
     return ADMIN_RATE_TG_HK_SET
 
 async def admin_rate_tg_hk_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1049,7 +1046,8 @@ async def admin_rate_tg_hk_process(update: Update, context: ContextTypes.DEFAULT
 async def admin_rate_tg_cl_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("💵 **Chile (CL) Telegram (TG)-er notun Bot Rate USDT-te likhun (jemon: `0.10` ba `0.12`):**")
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
+    await query.message.reply_text("💵 **Chile (CL) Telegram (TG)-er notun Bot Rate USDT-te likhun (jemon: `0.10` ba `0.12`):**", reply_markup=cancel_kb)
     return ADMIN_RATE_TG_CL_SET
 
 async def admin_rate_tg_cl_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1061,7 +1059,6 @@ async def admin_rate_tg_cl_process(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text("❌ Invalid Rate Format!")
     return ConversationHandler.END
 
-# ADMIN BROADCAST HANDLERS (UPDATED TO PRESERVE PREMIUM EMOJI / ENTITIES)
 async def admin_broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
