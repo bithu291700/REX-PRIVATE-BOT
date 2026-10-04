@@ -475,7 +475,7 @@ async def send_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
         [InlineKeyboardButton("💵 SET HK WA PRICE", callback_data="admin_rate_wa_hk_start"), InlineKeyboardButton("💵 SET CL WA PRICE", callback_data="admin_rate_wa_cl_start")],
         [InlineKeyboardButton("💵 SET HK TG PRICE", callback_data="admin_rate_tg_hk_start"), InlineKeyboardButton("💵 SET CL TG PRICE", callback_data="admin_rate_tg_cl_start")],
-        [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝙻𝗔𝗡𝙲𝗘", callback_data="admin_zero_bal_start")],
+        [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝙲𝗘", callback_data="admin_zero_bal_start")],
         [InlineKeyboardButton("📢 𝗕𝗥𝗢𝗔𝗗𝗖𝗔𝗦𝗧 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
         [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
     ])
@@ -526,7 +526,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
             [InlineKeyboardButton("💵 SET HK WA PRICE", callback_data="admin_rate_wa_hk_start"), InlineKeyboardButton("💵 SET CL WA PRICE", callback_data="admin_rate_wa_cl_start")],
             [InlineKeyboardButton("💵 SET HK TG PRICE", callback_data="admin_rate_tg_hk_start"), InlineKeyboardButton("💵 SET CL TG PRICE", callback_data="admin_rate_tg_cl_start")],
-            [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝗟𝗔𝗡𝙲𝗘", callback_data="admin_zero_bal_start")],
+            [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝙻𝗔𝗡𝙲𝗘", callback_data="admin_zero_bal_start")],
             [InlineKeyboardButton("📢 𝗕𝗥𝗢𝗔𝗗𝗖𝗔𝗦𝗧 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
             [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
         ])
@@ -1094,7 +1094,7 @@ async def main_async():
                 CallbackQueryHandler(deposit_binance_selected, pattern="^pay_binance$"),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_amount_received)
             ],
-            WAITING_TXID: [MessageHandler(filters.TEXT & ~filters.Command, deposit_txid_received)],
+            WAITING_TXID: [MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_txid_received)],
             WAITING_SCREENSHOT: [MessageHandler(filters.PHOTO, deposit_screenshot_received)]
         },
         fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
@@ -1153,7 +1153,7 @@ async def main_async():
 
     admin_broadcast_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_broadcast_start, pattern="^admin_broadcast_start$")],
-        states={ADMIN_BROADCAST: [MessageHandler((filters.TXT | filters.PHOTO) & ~filters.COMMAND, admin_broadcast_process)]},
+        states={ADMIN_BROADCAST: [MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, admin_broadcast_process)]},
         fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
