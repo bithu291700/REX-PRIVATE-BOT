@@ -416,7 +416,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if "HK" in text:
+    if "COUNTRY: HK" in text or text == "HK":
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "hk"}})
         await update.message.reply_text(
             f"{custom_emoji(2, '✅')} Country set: <code>HONG KONG (HK)</code> 🇭🇰", 
@@ -425,7 +425,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if "CHILE" in text or "CL" in text:
+    if "COUNTRY: CHILE" in text or "CL" in text:
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "cl"}})
         await update.message.reply_text(
             f"{custom_emoji(2, '✅')} Country set: <code>CHILE (CL)</code> 🇨🇱", 
@@ -569,8 +569,7 @@ async def send_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝙰𝙻𝙰𝙽𝙲𝙴", callback_data="admin_zero_bal_start")],
         [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝚃 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
         [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
-    ]
-    )
+    ])
     panel_msg = f"{custom_emoji(3, '🛠')} <b>Admin Control Panel:</b>"
     if update.message:
         await update.message.reply_text(panel_msg, reply_markup=admin_kb, parse_mode="HTML")
@@ -1101,7 +1100,7 @@ async def admin_add_bal_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
         uid = int(update.message.text.strip())
         context.user_data["target_add_uid"] = uid
         cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-        await query.message.reply_text(
+        await update.message.reply_text(
             f"{custom_emoji(1, '💰')} <b>User <code>{uid}</code>-er jonno koto USDT balance add korben ta likhun:</b>", 
             parse_mode="HTML", 
             reply_markup=cancel_kb
