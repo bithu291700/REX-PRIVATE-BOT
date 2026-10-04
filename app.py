@@ -79,7 +79,7 @@ WAIT_GROUP_USERNAME, WAIT_GROUP_SCREENSHOT = range(6, 8)
     ADMIN_BROADCAST,
 ) = range(8, 18)
 
-# Helper Functions
+# Helper Functions with Custom Animated Emojis
 def get_country_flag(country_code: str) -> str:
     code = country_code.lower()
     if code == "hk":
@@ -176,12 +176,12 @@ def is_subscribed(user_id: int) -> bool:
 # Keyboards
 def get_main_keyboard(user_id):
     keyboard = [
-        [KeyboardButton("💳 𝙰𝙲𝙲𝙾𝚄𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴"), KeyboardButton("🛒 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁")],
-        [KeyboardButton("🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂"), KeyboardButton("📱 𝚂𝙴𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴")],
-        [KeyboardButton("👤 𝙼𝚈 𝙿𝚁𝙾𝙵𝙸𝙻𝙴"), KeyboardButton("💵 𝙳𝙸𝙿𝙾𝚂𝙸𝚃")]
+        [KeyboardButton('<emoji id="5416081784641168838">💳</emoji> 𝙰𝙲𝙲𝙾𝚄𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴'), KeyboardButton('<emoji id="5411225014148014586">🛒</emoji> 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁')],
+        [KeyboardButton('<emoji id="5424972470023104089">🌐</emoji> 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂'), KeyboardButton('<emoji id="5282843764451195532">📱</emoji> 𝚂𝙴𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴')],
+        [KeyboardButton('<emoji id="5271604874419647061">👤</emoji> 𝙼𝚈 𝙿𝚁𝙾𝙵𝙸𝙻𝙴'), KeyboardButton('<emoji id="5427168083074628963">💵</emoji> 𝙳𝙸𝙿𝙾𝚂𝙸𝚃')]
     ]
     if user_id == ADMIN_ID:
-        keyboard.append([KeyboardButton("⚙️ 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻")])
+        keyboard.append([KeyboardButton('<emoji id="5397916757333654639">⚙️</emoji> 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻')])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
 # VAK-SMS API Functions
@@ -262,7 +262,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         sub_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton('<emoji id="5447410659077661506">💳</emoji> 𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 (5 Days / 7 Days)', callback_data="buy_sub_start")]
+            [InlineKeyboardButton('<emoji id="5377774889723798543">🌸</emoji> 𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 (5 Days / 7 Days)', callback_data="buy_sub_start")]
         ])
         msg = (
             f"👋 **Hello {user.full_name}!**\n\n"
@@ -286,7 +286,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     welcome_msg = (
         f"👋 **𝚆𝙴𝙻𝙲𝙾𝙼𝙴 𝚁𝙴𝚇 𝙿𝚁𝙸𝚅𝙰𝚃𝙴 𝙱𝙾𝚃!**\n\n"
-        f"⚙️ **𝚁𝙴𝙲𝙴𝙽𝚃 𝚂𝙴𝚃𝚄𝙿:**\n"
+        f"⚙️️ **𝚁𝙴𝙲𝙴𝙽𝚃 𝚂𝙴𝚃𝚄𝙿:**\n"
         f"• 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂: `{curr_country}` {country_flag}\n"
         f"• Service: `{curr_service}` {serv_emoji}\n"
         f"• 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${u_data.get('balance', 0.0):.4f} USDT` <emoji id=\"5253742260054409879\">💰</emoji>\n"
@@ -319,7 +319,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         sub_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton('<emoji id="5447410659077661506">💳</emoji> 𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 (5 Days / 7 Days)', callback_data="buy_sub_start")]
+            [InlineKeyboardButton('<emoji id="5377774889723798543">🌸</emoji> 𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 (5 Days / 7 Days)', callback_data="buy_sub_start")]
         ])
         await update.message.reply_text('<emoji id="5386367538735104399">❌</emoji> 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝙴𝚇𝙿𝙸𝚁𝙴𝚂! 𝙱𝚄𝚈 𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽.', reply_markup=ReplyKeyboardRemove(), parse_mode="HTML")
         await update.message.reply_text("👇 **𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽:**", reply_markup=sub_kb)
@@ -327,7 +327,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     text = update.message.text.strip()
 
-    if text == "💳 𝙰𝙲𝙲𝙾𝚄𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴":
+    if "𝙰𝙲𝙲𝙾𝚄𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴" in text:
         bot_bal = u_data.get("balance", 0.0)
         msg = f'<emoji id="5253742260054409879">💰</emoji> **𝙼𝚈 𝙱𝙰𝙻𝙰𝙽𝙲𝙴:** `${bot_bal:.4f}` USDT'
         if user_id == ADMIN_ID:
@@ -336,7 +336,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, parse_mode="HTML")
         return
 
-    if text == "👤 𝙼𝚈 𝙿𝚁𝙾𝙵𝙸𝙻𝙴":
+    if "𝙼𝚈 𝙿𝚁𝙾𝙵𝙸𝙻𝙴" in text:
         bot_bal = u_data.get("balance", 0.0)
         otp_cnt = u_data.get("otp_count", 0)
         exp_time = u_data.get("subscription_expiry")
@@ -353,7 +353,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # COUNTRY SELECTION
-    if text in ["🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈", "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂"]:
+    if "𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈" in text or "𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂" in text:
         country_kb = [
             [KeyboardButton("COUNTRY: HK 🇭🇰 (HONG KONG)"), KeyboardButton("COUNTRY: CHILE 🇨🇱 (CL)")],
             [KeyboardButton("🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄")]
@@ -372,7 +372,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # SERVICE SELECTION
-    if text == "📱 𝚂𝙴𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴":
+    if "𝚂𝙴𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴" in text:
         service_kb = [
             [KeyboardButton("𝚂𝙴𝚁𝚅𝙸𝙲𝙴: TG (𝚃𝙴𝙻𝙴𝙶𝚁𝙰𝙼)")],
             [KeyboardButton("𝚂𝙴𝚁𝚅𝙸𝙲𝙴: WA (𝚆𝙷𝙰𝚃𝚂𝙰𝙿𝙿)")],
@@ -391,11 +391,11 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text('<emoji id="5416081784641168838">✅</emoji> 𝚂𝙴𝚁𝚅𝙸𝙲𝙴 𝚂𝙴𝚃: `WHATSAPP (WA)` <emoji id="5440660757194744323">💬</emoji>', parse_mode="HTML", reply_markup=get_main_keyboard(user_id))
         return
 
-    if text == "🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄":
+    if "𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄" in text:
         await start(update, context)
         return
 
-    if text == "🛒 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁":
+    if "𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁" in text:
         user_has_active = any(order.get("user_id") == user_id for order in active_orders.values())
         if user_has_active:
             await update.message.reply_text(
@@ -439,18 +439,18 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             id_num = str(res["idNum"])
 
             inline_kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton('<emoji id="5416081784641168838">📩</emoji> Check Active OTP', callback_data=f"check_otp_{id_num}")],
+                [InlineKeyboardButton('<emoji id="5210952531676504517">📩</emoji> Check Active OTP', callback_data=f"check_otp_{id_num}")],
                 [InlineKeyboardButton('<emoji id="5386367538735104399">❌</emoji> Cancel Number', callback_data=f"cancel_num_{id_num}")]
             ])
 
             sent_msg = await update.message.reply_text(
                 f'<emoji id="5416081784641168838">✅</emoji> **𝙽𝚄𝙼𝙱𝙴𝚁 𝙱𝚄𝙸𝙻𝙳 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝚈!**\n\n'
-                f"📱 **Number:** `<code>{phone_num}</code>`\n"
-                f"🆔 **ID Num:** `{id_num}`\n"
-                f"🌍 **Country:** `{country.upper()}` {country_flag}\n"
-                f"💬 **Service:** `{service.upper()}` {serv_emoji}\n"
-                f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝙲𝙀 𝙆𝘼𝙏𝘽𝙀)*\n\n"
-                f"⏳ *𝙾𝚃𝙿 𝙿𝙾𝚆𝙴𝚁 𝙹𝙾𝙽𝙽𝙾 𝙾𝙿𝙴𝙺𝙺𝙷𝙰 𝙺𝙾𝚁𝚄𝙽...*",
+                f'<emoji id="5282843764451195532">📱</emoji> **Number:** `<code>{phone_num}</code>`\n'
+                f'<emoji id="5206607081334906820">🆔</emoji> **ID Num:** `{id_num}`\n'
+                f'<emoji id="5240241223632954241">🌍</emoji> **Country:** `{country.upper()}` {country_flag}\n'
+                f'<emoji id="5440660757194744323">💬</emoji> **Service:** `{service.upper()}` {serv_emoji}\n'
+                f'<emoji id="5253742260054409879">💵</emoji> **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝙲𝙀 𝙆𝘼𝙏𝘽𝙀)*\n\n'
+                f'<emoji id="5332455502917949981">⏳</emoji> *𝙾𝚃𝙿 𝙿𝙾𝚆𝙴𝚁 𝙹𝙾𝙽𝙽𝙾 𝙾𝙿𝙴𝙺𝙺𝙷𝙰 𝙺𝙾𝚁𝚄𝙽...*',
                 parse_mode="HTML",
                 reply_markup=inline_kb
             )
@@ -475,7 +475,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f'<emoji id="5386367538735104399">❌</emoji> `{err_msg}`', parse_mode="HTML")
         return
 
-    if text == "⚙️️ 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻" and user_id == ADMIN_ID:
+    if "𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻" in text and user_id == ADMIN_ID:
         await send_admin_panel(update, context)
         return
 
@@ -637,7 +637,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception:
             pass
         sub_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton('<emoji id="5447410659077661506">💳</emoji> 𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 (5 Days / 7 Days)', callback_data="buy_sub_start")]
+            [InlineKeyboardButton('<emoji id="5377774889723798543">🌸</emoji> 𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 (5 Days / 7 Days)', callback_data="buy_sub_start")]
         ])
         await context.bot.send_message(
             chat_id=target_id,
@@ -721,8 +721,8 @@ async def process_otp_success(context, id_num: str, otp: str):
 
     success_text = (
         f'<emoji id="5416081784641168838">✅</emoji> **𝙾𝚃𝙿 𝚁𝙴𝙲𝙴𝙸𝚅𝙴 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝚈!**\n\n'
-        f"📱 **𝙽𝚄𝙼𝙱𝙴𝚁:** `<code>{phone}</code>`\n"
-        f"🔑 **𝙾𝚃𝙿 𝙲𝙾𝙳𝙴:** `<code>{otp}</code>`\n\n"
+        f'<emoji id="5282843764451195532">📱</emoji> **𝙽𝚄𝙼𝙱𝙴𝚁:** `<code>{phone}</code>`\n'
+        f'<emoji id="5210952531676504517">🔑</emoji> **𝙾𝚃𝙿 𝙲𝙾𝙳𝙴:** `<code>{otp}</code>`\n\n'
         f'<emoji id="5253742260054409879">💵</emoji> **𝙱𝙰𝙻𝙰𝙽𝙲𝙴 𝙳𝙴𝙳𝙸𝙲𝙰𝚃𝙴𝙳:** `${cost}` USDT\n'
         f'<emoji id="5253742260054409879">💰</emoji> **𝚁𝙴𝙼𝙰𝙸𝙽𝙸𝙽𝙶 𝙱𝙰𝙻𝙰𝙽𝙲𝙴:** `${rem_bal:.4f}` USDT'
     )
