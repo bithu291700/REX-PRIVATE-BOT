@@ -1067,8 +1067,10 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
     await status_msg.edit_text(result_text, parse_mode="HTML")
     return ConversationHandler.END
 
-# Async Main Runner
-async def run_bot():
+# Main Entry Point
+def main():
+    threading.Thread(target=run_flask, daemon=True).start()
+    
     app = Application.builder().token(BOT_TOKEN).build()
 
     group_verify_conv = ConversationHandler(
@@ -1158,7 +1160,7 @@ async def run_bot():
     )
 
     admin_broadcast_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(admin_broadcast_start,pattern="^admin_broadcast_start$")],
+        entry_points=[CallbackQueryHandler(admin_broadcast_start, pattern="^admin_broadcast_start$")],
         states={ADMIN_BROADCAST: [MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, admin_broadcast_process)]},
         fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
     )
@@ -1179,22 +1181,8 @@ async def run_bot():
     app.add_handler(CallbackQueryHandler(handle_callbacks))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_messages))
 
-    async with app:
-        await app.start()
-        await app.updater.start_polling()
-        logging.info("🤖 Bot startup sequence completed. Polling started successfully.")
-        await asyncio.Event().wait()
-
-def main():
-    threading.Thread(target=run_flask, daemon=True).start()
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(run_bot())
-    except KeyboardInterrupt:
-        pass
-    finally:
-        loop.close()
+    logging.info("🤖 Bot startup sequence completed. Polling started successfully.")
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
