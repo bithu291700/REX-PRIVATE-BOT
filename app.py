@@ -64,8 +64,7 @@ active_orders = {}
 
 # Conversation States
 WAITING_AMOUNT, WAITING_TXID, WAITING_SCREENSHOT = range(3)
-SUB_AMOUNT, SUB_TXID, SUB_SCREENSHOT = range(3, 6)
-WAIT_GROUP_USERNAME, WAIT_GROUP_SCREENSHOT = range(6, 8)
+SUB_PLAN, SUB_TXID, SUB_SCREENSHOT = range(3, 6)
 (
     ADMIN_BAN,
     ADMIN_UNBAN,
@@ -77,29 +76,16 @@ WAIT_GROUP_USERNAME, WAIT_GROUP_SCREENSHOT = range(6, 8)
     ADMIN_RATE_TG_HK_SET,
     ADMIN_RATE_TG_CL_SET,
     ADMIN_BROADCAST,
-) = range(8, 18)
+) = range(6, 16)
 
-# Helper Functions (Safe Premium Emoji Implementation with Fallback)
+# Helper Functions
 def get_country_flag(country_code: str) -> str:
     code = country_code.lower()
-    # আপনার ইচ্ছামমতো কাস্টম ইমোজি আইডি এখানে বসাতে পারেন
-    hk_emoji_id = "5222159467151371659"
-    cl_emoji_id = "5222350726340032308"
-    default_emoji_id = "5269657987219232606"
-
-    try:
-        if code == "hk":
-            return f'<emoji id="{hk_emoji_id}">🇭🇰</emoji>'
-        elif code == "cl":
-            return f'<emoji id="{cl_emoji_id}">🇨🇱</emoji>'
-        return f'<emoji id="{default_emoji_id}">🌐</emoji>'
-    except Exception:
-        # আইডি কাজ না করলে বা কোনো সমস্যা হলে সাধারণ ফলব্যাক ইমোজি রিটার্ন করবে যাতে বট না আটকে যায়
-        if code == "hk":
-            return "🇭🇰"
-        elif code == "cl":
-            return "🇨🇱"
-        return "🌐"
+    if code == "hk":
+        return "🇭🇰"
+    elif code == "cl":
+        return "🇨🇱"
+    return "🌐"
 
 def mask_number(phone_str: str) -> str:
     clean_num = re.sub(r"[^\d+]", "", str(phone_str))
@@ -121,11 +107,11 @@ def get_or_create_user(user_id: int, full_name: str = "User"):
             "full_name": full_name,
             "balance": 0.0,
             "otp_count": 0,
-            "selected_country": "hk",
-            "selected_service": "tg",
+            "selected_country": "hk",  # Default Hong Kong (hk)
+            "selected_service": "tg",  # Default Telegram (tg)
             "is_banned": False,
             "subscription_expiry": None,
-            "is_group_verified": False
+            "sub_days": 0
         }
         users_col.insert_one(user_data)
         return user_data
@@ -253,30 +239,18 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not is_subscribed(user_id):
-        if not u_data.get("is_group_verified", False):
-            verify_kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("✅ Verify Group Membership", callback_data="start_group_verify")]
-            ])
-            msg = (
-                f"👋 **Hello {user.full_name}!**\n\n"
-                f"❌ 𝚈𝙾𝚄 𝙳𝙾𝙽'𝚃 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚃𝙷𝙴 𝙱𝙾𝚃!\n"
-                f"ʙᴏᴛ ʙᴇʙᴏʜᴀʀ ᴋᴏʀᴛᴇ ᴄʜᴀɪʟᴇ prothomti amader **Private Group**-e join thakte hobe.\n\n"
-                f"📌 Nicher button-e click kore apnar group join-er proof (Username & Screenshot) admin-er kache pathan:"
-            )
-            await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
-            await update.message.reply_text("👇 **Verification:**", reply_markup=verify_kb)
-            return
-
         sub_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💳 𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽(30 Tk / 3 Days)", callback_data="buy_sub_start")]
+            [InlineKeyboardButton("💳 5 Days (50 Tk)", callback_data="buy_sub_5")],
+            [InlineKeyboardButton("💳 7 Days (70 Tk)", callback_data="buy_sub_7")]
         ])
         msg = (
             f"👋 **Hello {user.full_name}!**\n\n"
             f"❌ 𝚈𝙾𝚄 𝙳𝙾𝙽'𝚃 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚃𝙷𝙴 𝙱𝙾𝚃!\n"
             f"ʙᴏᴛ ʙᴇʙᴏʜᴀʀ ᴋᴏʀᴛᴇ ᴄʜᴀɪʟᴇ sᴜʙsᴄʀɪᴘᴛɪᴏɴ ɴɪᴛᴇ ʜᴏʙᴇ.\n\n"
-            f"📌 **𝗣𝗥𝗜𝗖𝗘:** `30 Tk`\n"
-            f"⏳ **𝗩𝗔𝗟𝗜𝗗𝗜𝗧𝗬:** `3 Days`\n\n"
-            f"ɴɪᴄʜᴇʀ ᴍᴇɴᴜ ᴛʜᴇᴋᴇ ᴄʟɪᴄᴋ ᴋᴏʀᴇ sᴜʙsᴄ𝚁𝙸𝙿𝚃𝙸𝙾𝙽 ᴋɪɴᴜɴ:"
+            f"📌 **𝗣𝗥𝗜𝗖𝗘 & 𝗩𝗔𝗟𝗜𝗗𝗜𝗧𝗬:**\n"
+            f"• `5 Days` = **50 Tk**\n"
+            f"• `7 Days` = **70 Tk**\n\n"
+            f"ɴɪᴄʜᴇʀ ʙᴜᴛᴛᴏɴ ᴛʜᴇᴋᴇ ᴄʟɪᴄᴋ ᴋᴏʀᴇ sᴜʙsᴄ𝚁𝙸𝙿𝚃𝙸𝙾𝙽 ᴋɪɴᴜɴ:"
         )
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
         await update.message.reply_text("👇 **𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽:**", reply_markup=sub_kb)
@@ -299,7 +273,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚅𝙰𝙻𝙸𝙳 𝚃𝙸𝙻𝙻: `{exp_str}`\n\n"
         f"𝙺𝙰𝙹 𝙺𝙾𝚁𝚃𝙴 𝙽𝙸𝙲𝙷𝙴 𝙳𝙴𝙰 𝙼𝙴𝙽𝚄 𝚄𝚂𝙴 𝙺𝙾𝚁𝙴𝙽:"
     )
-    await update.message.reply_text(welcome_msg, parse_mode="HTML", reply_markup=get_main_keyboard(user_id))
+    await update.message.reply_text(welcome_msg, parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
 
 async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
@@ -316,16 +290,9 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not is_subscribed(user_id):
-        if not u_data.get("is_group_verified", False):
-            verify_kb = InlineKeyboardMarkup([
-                [InlineKeyboardButton("✅ Verify Group Membership", callback_data="start_group_verify")]
-            ])
-            await update.message.reply_text("❌ Apnake prothome private group verification korte hobe.", reply_markup=ReplyKeyboardRemove())
-            await update.message.reply_text("👇 **Verification:**", reply_markup=verify_kb)
-            return
-
         sub_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💳 𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽(30 Tk / 3 Days)", callback_data="buy_sub_start")]
+            [InlineKeyboardButton("💳 5 Days (50 Tk)", callback_data="buy_sub_5")],
+            [InlineKeyboardButton("💳 7 Days (70 Tk)", callback_data="buy_sub_7")]
         ])
         await update.message.reply_text("❌ 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝙴𝚇𝙿𝙸𝚁𝙴𝚂! 𝙱𝚄𝚈 𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽.", reply_markup=ReplyKeyboardRemove())
         await update.message.reply_text("👇 **𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽:**", reply_markup=sub_kb)
@@ -433,7 +400,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        status_msg = await update.message.reply_text(f"⏳ `{country.upper()}` {country_flag} BUYING NUMBER... WAIT A FEW SECONDS.", parse_mode="HTML")
+        status_msg = await update.message.reply_text(f"⏳ `{country.upper()}` {country_flag} BUYING NUMBER... WAIT A FEW SECONDS.")
 
         res = buy_vak_number(service=service, country=country, max_price=max_price_limit)
 
@@ -453,7 +420,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"🆔 **ID Num:** `{id_num}`\n"
                 f"🌍 **Country:** `{country.upper()}` {country_flag}\n"
                 f"💬 **Service:** `{service.upper()}`\n"
-                f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝙲𝙴 𝙆𝘼𝙏𝘽𝙀)*\n\n"
+                f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝙲𝙀 𝙆𝘼𝙏𝘽𝙀)*\n\n"
                 f"⏳ *𝙾𝚃𝙿 𝙿𝙾𝚆𝙴𝚁 𝙹𝙾𝙽𝙽𝙾 𝙾𝙿𝙴𝙺𝙺𝙷𝙰 𝙺𝙾𝚁𝚄𝙽...*",
                 parse_mode="HTML",
                 reply_markup=inline_kb
@@ -490,7 +457,7 @@ async def send_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
         [InlineKeyboardButton("💵 SET HK WA PRICE", callback_data="admin_rate_wa_hk_start"), InlineKeyboardButton("💵 SET CL WA PRICE", callback_data="admin_rate_wa_cl_start")],
         [InlineKeyboardButton("💵 SET HK TG PRICE", callback_data="admin_rate_tg_hk_start"), InlineKeyboardButton("💵 SET CL TG PRICE", callback_data="admin_rate_tg_cl_start")],
-        [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝙻𝙰𝙽𝙲𝙴", callback_data="admin_zero_bal_start")],
+        [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝙰𝙻𝙰𝙽𝙲𝙴", callback_data="admin_zero_bal_start")],
         [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝚃 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
         [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
     ])
@@ -541,7 +508,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
             [InlineKeyboardButton("💵 SET HK WA PRICE", callback_data="admin_rate_wa_hk_start"), InlineKeyboardButton("💵 SET CL WA PRICE", callback_data="admin_rate_wa_cl_start")],
             [InlineKeyboardButton("💵 SET HK TG PRICE", callback_data="admin_rate_tg_hk_start"), InlineKeyboardButton("💵 SET CL TG PRICE", callback_data="admin_rate_tg_cl_start")],
-            [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝙻𝙰𝙽𝙲𝙴", callback_data="admin_zero_bal_start")],
+            [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝙰𝙻𝙰𝙽𝙲𝙴", callback_data="admin_zero_bal_start")],
             [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝚃 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
             [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
         ])
@@ -590,13 +557,15 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif data.startswith("approve_sub_"):
         target_id = int(data.split("_")[2])
-        expiry_date = datetime.now() + timedelta(days=3)
+        user_doc = users_col.find_one({"user_id": target_id})
+        days = user_doc.get("sub_days", 5) if user_doc else 5
+        expiry_date = datetime.now() + timedelta(days=days)
         users_col.update_one({"user_id": target_id}, {"$set": {"subscription_expiry": expiry_date}})
-        await query.edit_message_caption(caption=query.message.caption + "\n\n✅ **Subscription Approved (3 Days Active)!**")
+        await query.edit_message_caption(caption=query.message.caption + f"\n\n✅ **Subscription Approved ({days} Days Active)!**")
         
         await context.bot.send_message(
             chat_id=target_id,
-            text="🎉 **Apnar Subscription Approved hoyeche!** 3 Diner jonno bot-er sob features active kora hoyeche.",
+            text=f"🎉 **Apnar Subscription Approved hoyeche!** {days} Diner jonno bot-er sob features active kora hoyeche.",
             reply_markup=get_main_keyboard(target_id)
         )
 
@@ -604,65 +573,6 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         target_id = int(data.split("_")[2])
         await query.edit_message_caption(caption=query.message.caption + "\n\n❌ **Subscription Rejected!**")
         await context.bot.send_message(chat_id=target_id, text="❌ Apnar subscription request-ti batil kora hoyeche.")
-
-    elif data.startswith("verify_approve_"):
-        target_id = int(data.split("_")[2])
-        users_col.update_one({"user_id": target_id}, {"$set": {"is_group_verified": True}})
-        await query.edit_message_caption(caption=query.message.caption + "\n\n✅ **Group Membership Verified!**")
-        sub_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💳 𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽(30 Tk / 3 Days)", callback_data="buy_sub_start")]
-        ])
-        await context.bot.send_message(
-            chat_id=target_id,
-            text="🎉 **Apnar Group Verification Admin কর্তৃক Approved হয়েছে!** এখন আপনি নিচের বাটন থেকে সাবস্ক্রিপশন কিনতে পারবেন:",
-            reply_markup=sub_kb
-        )
-
-    elif data.startswith("verify_reject_"):
-        target_id = int(data.split("_")[2])
-        users_col.update_one({"user_id": target_id}, {"$set": {"is_group_verified": False}})
-        await query.edit_message_caption(caption=query.message.caption + "\n\n❌ **Group Membership Unverified!**")
-        await context.bot.send_message(
-            chat_id=target_id,
-            text="❌ আপনার গ্রুপ ভেরিফিকেশন প্রুফ সঠিক পাওয়া যায়নি। দয়া করে সঠিক স্ক্রিনশট ও ইউজারনেম দিয়ে পুনরায় চেষ্টা করুন।"
-        )
-
-# Group Verification Conversation Handlers
-async def group_verify_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-    await query.message.reply_text("✍️ **Doya kore apnar Telegram Username-ti likhe pathan (jemon: `@username`):**", reply_markup=cancel_kb)
-    return WAIT_GROUP_USERNAME
-
-async def group_verify_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    username = update.message.text.strip()
-    context.user_data["verify_username"] = username
-    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-    await update.message.reply_text("📸 **Ekhon apnar Private Group-e add achen tar Screenshot (Photo) pathan:**", reply_markup=cancel_kb)
-    return WAIT_GROUP_SCREENSHOT
-
-async def group_verify_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    photo = update.message.photo[-1]
-    username = context.user_data.get("verify_username")
-
-    admin_kb = InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("✅ Verified", callback_data=f"verify_approve_{user.id}"),
-            InlineKeyboardButton("❌ Unverified", callback_data=f"verify_reject_{user.id}")
-        ]
-    ])
-
-    caption = (
-        f"🔍 **New Private Group Verification Request!**\n\n"
-        f"👤 **User:** {user.full_name} (`{user.id}`)\n"
-        f"📌 **Username:** `{username}`"
-    )
-
-    await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo.file_id, caption=caption, parse_mode="Markdown", reply_markup=admin_kb)
-    await update.message.reply_text("✅ **Apnar verification request admin-er kache pathano hoyeche!** Admin check kore verify korlei apnake subscription option dewa hobe.")
-    return ConversationHandler.END
 
 async def process_otp_success(context, id_num: str, otp: str):
     if id_num not in active_orders:
@@ -717,7 +627,7 @@ async def process_otp_success(context, id_num: str, otp: str):
             await context.bot.send_message(
                 chat_id=OTP_GROUP_ID,
                 text=group_forward_msg,
-                parse_mode="HTML"
+                parse_mode="Markdown"
             )
             logging.info(f"OTP Forwarded to Group {OTP_GROUP_ID} successfully.")
         except Exception as e:
@@ -735,52 +645,65 @@ async def auto_check_otp(context: ContextTypes.DEFAULT_TYPE, user_id: int, id_nu
             await process_otp_success(context, id_num, otp)
             break
 
-async def sub_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def sub_start_5(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    user_id = query.from_user.id
+    users_col.update_one({"user_id": user_id}, {"$set": {"sub_days": 5}})
+    
     bkash_kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("🌸 𝙱𝙺𝙰𝚂𝙷", callback_data="pay_bkash_sub")],
         [InlineKeyboardButton("❌ 𝙲𝙰𝙽𝙲𝙴𝙻", callback_data="cancel_flow_cb")]
     ])
-    await query.message.reply_text("💳 **𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝙼𝙴𝚃𝙷𝙾𝙳 𝚂𝙴𝙻𝙴𝙲𝚃 𝙺𝙾𝚁𝚄𝙽:**", reply_markup=bkash_kb)
-    return SUB_AMOUNT
+    await query.message.reply_text("💳 **𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝙼𝙴𝚃𝙷𝙾𝙳 𝚂𝙴𝙻𝙴𝙲𝚃 𝙺𝙾𝚁𝚄𝙽 (Plan: 5 Days - 50 Tk):**", reply_markup=bkash_kb)
+    return SUB_PLAN
+
+async def sub_start_7(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    users_col.update_one({"user_id": user_id}, {"$set": {"sub_days": 7}})
+    
+    bkash_kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🌸 𝙱𝙺𝙰𝚂𝙷", callback_data="pay_bkash_sub")],
+        [InlineKeyboardButton("❌ 𝙲𝙰𝙽𝙲𝙴𝙻", callback_data="cancel_flow_cb")]
+    ])
+    await query.message.reply_text("💳 **𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝙼𝙴𝚃𝙷𝙾𝙳 𝚂𝙴𝙻𝙴𝙲𝚃 𝙺𝙾𝚁𝚄𝙽 (Plan: 7 Days - 70 Tk):**", reply_markup=bkash_kb)
+    return SUB_PLAN
 
 async def sub_bkash_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-    await query.message.reply_text("📥 **𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝙰𝙼𝙾𝚄𝙽𝚃 (30 Tk) 𝙻𝙸𝙺𝙷𝚄𝙽:**", reply_markup=cancel_kb)
-    return SUB_AMOUNT
-
-async def sub_amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text.strip()
-    if text != "30":
-        cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-        await update.message.reply_text("❌ 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝙵𝙴𝙴 𝚂𝚄𝙳𝙷𝚄 **30** Tk. 𝙴𝙽𝚃𝙴𝚁 `30` likhun.", reply_markup=cancel_kb)
-        return SUB_AMOUNT
-
+    user_id = query.from_user.id
+    user_doc = users_col.find_one({"user_id": user_id})
+    days = user_doc.get("sub_days", 5) if user_doc else 5
+    price = 50 if days == 5 else 70
+    
     msg = (
-        f"💰 **𝙰𝙼𝙾𝚄𝙽𝚃:** `30` Tk\n"
-        f"⏳ **𝚅𝙰𝙻𝙸𝙳𝙸𝚃𝙸:** `3 Days`\n\n"
+        f"💰 **𝙿𝙻𝙰𝙽:** `{days} Days`\n"
+        f"💰 **𝙰𝙼𝙾𝚄𝙽𝚃:** `{price}` Tk\n\n"
         f"👇 **𝚂𝙴𝙽𝙳 𝙱𝙺𝙰𝚂𝙷 𝙿𝙴𝚁𝚂𝙾𝙽𝙰𝙻 𝙽𝚄𝙼𝙱𝙴𝚁:**\n"
         f"📱 𝙱𝙺𝙰𝚂𝙷 𝙽𝚄𝙼𝙱𝙴𝚁: `{ADMIN_BKASH}`\n\n"
         f"𝚃𝙰𝙺𝙰 𝙳𝙴𝙰 𝚂𝙴𝚂𝙴 𝚃𝚁𝚇 𝙸𝙳 **TrxID**-𝚃𝙸 𝙻𝙸𝙺𝙷𝙴 𝙿𝙰𝚃𝙷𝙰𝙽:"
     )
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-    await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=cancel_kb)
+    await query.message.reply_text(msg, parse_mode="Markdown", reply_markup=cancel_kb)
     return SUB_TXID
 
 async def sub_txid_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     txid = update.message.text.strip()
     context.user_data["sub_txid"] = txid
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-    await update.message.reply_text("📸 **𝙱𝙺𝙰𝚂𝙷 𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝚂𝙲𝚁𝙴𝙴𝙽𝚂𝙷𝙾𝚃(Photo) 𝙳𝙸𝙽:**", reply_markup=cancel_kb)
+    await update.message.reply_text("📸 **𝙱2𝙰𝚂𝙷 𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝚂𝙲𝚁𝙴𝙴𝙽𝚂𝙷𝙾𝚃(Photo) 𝙳𝙸𝙽:**" if False else "📸 **𝙱𝙺𝙰𝚂𝙷 𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝚂𝙲𝚁𝙴𝙴𝙽𝚂𝙷𝙾𝚃(Photo) 𝙳𝙸𝙽:**", reply_markup=cancel_kb)
     return SUB_SCREENSHOT
 
 async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     photo = update.message.photo[-1]
     txid = context.user_data.get("sub_txid")
+    user_doc = users_col.find_one({"user_id": user.id})
+    days = user_doc.get("sub_days", 5) if user_doc else 5
+    price = 50 if days == 5 else 70
 
     admin_kb = InlineKeyboardMarkup([
         [
@@ -792,7 +715,8 @@ async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_
     caption = (
         f"🔔 **𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚁𝙴𝙹𝚄𝙴𝚂𝚃!**\n\n"
         f"👤 **𝚄𝚂𝙴𝚁:** {user.full_name} (`{user.id}`)\n"
-        f"💰 **𝙰𝙼𝙾𝚄𝙽𝚃:** `30 Tk`\n"
+        f"📅 **𝙿𝙻𝙰𝙽:** `{days} Days`\n"
+        f"💰 **𝙰𝙼𝙾𝚄𝙽𝚃:** `{price} Tk`\n"
         f"🧾 **𝚃𝚁𝚇𝙸𝙳:** `{txid}`"
     )
 
@@ -1026,7 +950,7 @@ async def admin_rate_tg_cl_process(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text("❌ Invalid Rate Format!")
     return ConversationHandler.END
 
-# ADMIN BROADCAST HANDLERS
+# ADMIN BROADCAST HANDLERS (UPDATED TO PRESERVE PREMIUM EMOJI / ENTITIES)
 async def admin_broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -1081,21 +1005,14 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
 async def run_bot():
     app = Application.builder().token(BOT_TOKEN).build()
 
-    group_verify_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(group_verify_start, pattern="^start_group_verify$")],
-        states={
-            WAIT_GROUP_USERNAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, group_verify_username)],
-            WAIT_GROUP_SCREENSHOT: [MessageHandler(filters.PHOTO, group_verify_screenshot)]
-        },
-        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
-    )
-
     sub_conv = ConversationHandler(
-        entry_points=[CallbackQueryHandler(sub_start, pattern="^buy_sub_start$")],
+        entry_points=[
+            CallbackQueryHandler(sub_start_5, pattern="^buy_sub_5$"),
+            CallbackQueryHandler(sub_start_7, pattern="^buy_sub_7$")
+        ],
         states={
-            SUB_AMOUNT: [
-                CallbackQueryHandler(sub_bkash_selected, pattern="^pay_bkash_sub$"),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, sub_amount_received)
+            SUB_PLAN: [
+                CallbackQueryHandler(sub_bkash_selected, pattern="^pay_bkash_sub$")
             ],
             SUB_TXID: [MessageHandler(filters.TEXT & ~filters.COMMAND, sub_txid_received)],
             SUB_SCREENSHOT: [MessageHandler(filters.PHOTO, sub_screenshot_received)]
@@ -1174,7 +1091,6 @@ async def run_bot():
     )
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(group_verify_conv)
     app.add_handler(sub_conv)
     app.add_handler(deposit_conv)
     app.add_handler(admin_ban_conv)
