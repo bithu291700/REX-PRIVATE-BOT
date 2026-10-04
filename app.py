@@ -62,7 +62,7 @@ def run_flask():
 # In-Memory Active Orders
 active_orders = {}
 
-# Conversation States (Fixed and separated cleanly to avoid overlapping)
+# Conversation States (Fixed count matching range length correctly)
 (
     WAITING_AMOUNT, WAITING_TXID, WAITING_SCREENSHOT,
     SUB_AMOUNT, SUB_TXID, SUB_SCREENSHOT,
@@ -73,7 +73,7 @@ active_orders = {}
     ADMIN_RATE_WA_HK_SET, ADMIN_RATE_WA_CL_SET,
     ADMIN_RATE_TG_HK_SET, ADMIN_RATE_TG_CL_SET,
     ADMIN_BROADCAST
-) = range(19)
+) = range(18)
 
 # Helper Functions
 CUSTOM_EMOJI_IDS = {
