@@ -4,7 +4,7 @@ import threading
 import asyncio
 import re
 from datetime import datetime, timedelta
-from flask import Flask
+from flask import Flask, request
 from pymongo import MongoClient
 from telegram import (
     ReplyKeyboardMarkup,
@@ -38,6 +38,7 @@ OTP_GROUP_ID = os.getenv("OTP_GROUP_ID")
 BINANCE_ID = os.getenv("BINANCE_ID", "907194603")
 ADMIN_BKASH = "01858582881"
 MONGODB_URI = os.getenv("MONGODB_URI")
+RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL")  # Render theke auto ashbe jodi URL thake
 
 # MongoDB Setup
 if not MONGODB_URI:
@@ -53,11 +54,7 @@ flask_app = Flask("")
 
 @flask_app.route("/")
 def home():
-    return "Rex Private Telegram Bot is Active!", 200
-
-def run_flask():
-    port = int(os.environ.get("PORT", 8080))
-    flask_app.run(host="0.0.0.0", port=port)
+    return "Rex Private Telegram Bot is Active with Webhook!", 200
 
 # In-Memory Active Orders
 active_orders = {}
@@ -166,7 +163,6 @@ def is_subscribed(user_id: int) -> bool:
             return True
     return False
 
-# Keyboards
 def get_main_keyboard(user_id):
     keyboard = [
         [KeyboardButton("💳 𝙰𝙲𝙲𝙾𝚄𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴"), KeyboardButton("🛒 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁")],
@@ -177,7 +173,6 @@ def get_main_keyboard(user_id):
         keyboard.append([KeyboardButton("⚙️ 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻")])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-# VAK-SMS API Functions
 def set_number_status(id_num: str, status: str):
     url = f"https://vak-sms.com/api/setStatus/?apiKey={VAK_SMS_API_KEY}&idNum={id_num}&status={status}"
     try:
@@ -189,10 +184,8 @@ def buy_vak_number(service: str = "tg", country: str = "hk", max_price: float = 
     url = f"https://vak-sms.com/api/getNumber/?apiKey={VAK_SMS_API_KEY}&service={service}&country={country}&maxPrice={max_price}"
     try:
         res = requests.get(url).json()
-        
         if isinstance(res, dict) and res.get("error") == "noNumber":
             return {"error": "Stock Out!"}
-            
         if isinstance(res, dict) and "tel" in res and "idNum" in res:
             assigned_price = res.get("price")
             if assigned_price is not None:
@@ -204,7 +197,6 @@ def buy_vak_number(service: str = "tg", country: str = "hk", max_price: float = 
                         return {"error": "Stock Out!"}
                 except ValueError:
                     pass
-
         return res
     except Exception as e:
         return {"error": "Stock Out!"}
@@ -224,11 +216,9 @@ def fetch_otp_code(id_num: str):
     except Exception as e:
         return {"error": str(e)}
 
-# Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
-
     u_data = get_or_create_user(user_id, user.full_name)
 
     if u_data.get("is_banned", False):
@@ -279,7 +269,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     welcome_msg = (
         f"👋 <emoji id='5244837092042750681'><b>𝚆𝙴𝙻𝙲𝙾𝙼𝙴 𝚁𝙴𝚇 𝙿𝚁𝙸𝚅𝙰𝚃𝙴 𝙱𝙾𝚃!</b></emoji>\n\n"
-        f"⚙️ <b>𝚁𝙴𝙲𝙴𝙽𝚃 𝚂𝙴𝚃𝚄𝙿:</b>\n"
+        f"⚙️️ <b>𝚁𝙴𝙲𝙴𝙽𝚃 𝚂𝙴𝚃𝚄𝙿:</b>\n"
         f"• 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂: <code>{curr_country}</code> {country_flag}\n"
         f"• Service: <code>{curr_service}</code>\n"
         f"• 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: <code>${u_data.get('balance', 0.0):.4f} USDT</code>\n"
@@ -291,7 +281,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     user_id = user.id
-
     u_data = get_or_create_user(user_id, user.full_name)
 
     if u_data.get("is_banned", False):
@@ -345,7 +334,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(profile_msg, parse_mode="HTML")
         return
 
-    # COUNTRY SELECTION
     if text in ["🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈", "🌐 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂"]:
         country_kb = [
             [KeyboardButton("COUNTRY: HK 🇭🇰 (HONG KONG)"), KeyboardButton("COUNTRY: CHILE 🇨🇱 (CL)")],
@@ -364,7 +352,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("✅ Country set: <code>CHILE (CL)</code> 🇨🇱", parse_mode="HTML", reply_markup=get_main_keyboard(user_id))
         return
 
-    # SERVICE SELECTION
     if text == "📱 𝚂𝙴𝚃 𝚂𝙴𝚁𝚅𝙸𝙲𝙴":
         service_kb = [
             [KeyboardButton("𝚂𝙴𝚁𝚅𝙸𝙲𝙴: TG (𝚃𝙴𝙻𝙴𝙶𝚁𝙰𝙼)")],
@@ -423,7 +410,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
         status_msg = await update.message.reply_text(f"⏳ <code>{country.upper()}</code> {country_flag} BUYING NUMBER... WAIT A FEW SECONDS.", parse_mode="HTML")
-
         res = buy_vak_number(service=service, country=country, max_price=max_price_limit)
 
         if isinstance(res, dict) and "tel" in res and "idNum" in res:
@@ -442,7 +428,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"🆔 <b>ID Num:</b> <code>{id_num}</code>\n"
                 f"🌍 <b>Country:</b> <code>{country.upper()}</code> {country_flag}\n"
                 f"💬 <b>Service:</b> <code>{service.upper()}</code>\n"
-                f"💵 <b>Rate:</b> <code>${bot_rate}</code> USDT <i>(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙻𝘼𝙉𝘾𝙀 𝙆𝘼𝙏𝘽𝙀)</i>\n\n"
+                f"💵 <b>Rate:</b> <code>${bot_rate}</code> USDT <i>(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙻𝘼𝙉𝙲𝙀 𝙆𝘼𝙏𝘽𝙀)</i>\n\n"
                 f"⏳ <i>𝙾𝚃𝙿 𝙿𝙾𝚆𝙴𝚁 𝙹𝙾𝙽𝙽𝙾 𝙾𝙿𝙴𝙺𝙺𝙷𝙰 𝙺𝙾𝚁𝚄𝙽...</i>",
                 parse_mode="HTML",
                 reply_markup=inline_kb
@@ -500,11 +486,9 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             subscribed_users = list(users_col.find({
                 "subscription_expiry": {"$gt": now}
             }))
-            
             if not subscribed_users:
                 await query.message.reply_text("<emoji id='5395695537687123235'>📋</emoji> Currently, there are no active subscribed users.", parse_mode="HTML")
                 return
-            
             msg = f"👥 <b>Active Subscribed Users ({len(subscribed_users)}):</b>\n\n"
             for u in subscribed_users:
                 uid = u.get("user_id", "N/A")
@@ -513,7 +497,6 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 bal = u.get("balance", 0.0)
                 otp_cnt = u.get("otp_count", 0)
                 msg += f"• <b>{safe_name}</b> (<code>{uid}</code>)\n  └ 💰 Balance: <code>${bal:.4f}</code> USDT | 📩 OTP Rcv: <code>{otp_cnt}</code>\n\n"
-                
             await query.message.reply_text(msg, parse_mode="HTML")
         except Exception as e:
             await query.message.reply_text(f"<emoji id='5253742260054409879'>❌</emoji> Error loading users: {str(e)}", parse_mode="HTML")
@@ -523,7 +506,6 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         new_status = not current_status
         set_bot_active(new_status)
         status_text = "🟢 <b>Bot ON (Active) kora hoyeche!</b>" if new_status else "🔴 <b>Bot OFF (Maintenance Mode) kora hoyeche!</b>"
-        
         status_str = "🟢 ON (Active)" if new_status else "🔴 OFF (Maintenance)"
         admin_kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("👥 𝗩𝗜𝗘𝗪 𝗔𝗟𝗟 𝗨𝗦𝗘𝗥", callback_data="admin_view_users")],
@@ -583,7 +565,6 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         expiry_date = datetime.now() + timedelta(days=3)
         users_col.update_one({"user_id": target_id}, {"$set": {"subscription_expiry": expiry_date}})
         await query.edit_message_caption(caption=query.message.caption + "\n\n✅ <b>Subscription Approved (3 Days Active)!</b>", parse_mode="HTML")
-        
         await context.bot.send_message(
             chat_id=target_id,
             text="🎉 <b>Apnar Subscription Approved hoyeche!</b> 3 Diner jonno bot-er sob features active kora hoyeche.",
@@ -619,7 +600,6 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text="❌ আপনার গ্রুপ ভেরিফিকেশন প্রুফ সঠিক পাওয়া যায়নি। দয়া করে সঠিক স্ক্রিনশট ও ইউজারনেম দিয়ে পুনরায় চেষ্টা করুন."
         )
 
-# Group Verification Conversation Handlers
 async def group_verify_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -638,20 +618,17 @@ async def group_verify_screenshot(update: Update, context: ContextTypes.DEFAULT_
     user = update.effective_user
     photo = update.message.photo[-1]
     username = context.user_data.get("verify_username")
-
     admin_kb = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("✅ Verified", callback_data=f"verify_approve_{user.id}"),
             InlineKeyboardButton("❌ Unverified", callback_data=f"verify_reject_{user.id}")
         ]
     ])
-
     caption = (
         f"🔍 <b>New Private Group Verification Request!</b>\n\n"
         f"👤 <b>User:</b> {user.full_name} (<code>{user.id}</code>)\n"
         f"📌 <b>Username:</b> <code>{username}</code>"
     )
-
     await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo.file_id, caption=caption, parse_mode="HTML", reply_markup=admin_kb)
     await update.message.reply_text("✅ <b>Apnar verification request admin-er kache pathano hoyeche!</b> Admin check kore verify korlei apnake subscription option dewa hobe.", parse_mode="HTML")
     return ConversationHandler.END
@@ -659,7 +636,6 @@ async def group_verify_screenshot(update: Update, context: ContextTypes.DEFAULT_
 async def process_otp_success(context, id_num: str, otp: str):
     if id_num not in active_orders:
         return
-
     order_info = active_orders.pop(id_num)
     uid = order_info["user_id"]
     cost = order_info["cost"]
@@ -673,7 +649,6 @@ async def process_otp_success(context, id_num: str, otp: str):
         {"user_id": uid},
         {"$inc": {"balance": -cost, "otp_count": 1}}
     )
-    
     updated_user = get_user(uid)
     rem_bal = updated_user.get("balance", 0.0) if updated_user else 0.0
     set_number_status(id_num, "end")
@@ -685,7 +660,6 @@ async def process_otp_success(context, id_num: str, otp: str):
         f"💵 <b>𝙱𝙰𝙻𝙰𝙽𝙲𝙴 𝙳𝙴𝙳𝙸𝙲𝙰𝚃𝙴𝙳:</b> <code>${cost}</code> USDT\n"
         f"💰 <b>𝚁𝙴𝙼𝙰𝙸𝙽𝙸𝙽𝙶 𝙱𝙰𝙻𝙰𝙽𝙲𝙴:</b> <code>${rem_bal:.4f}</code> USDT"
     )
-
     try:
         await context.bot.edit_message_text(
             chat_id=uid,
@@ -703,7 +677,6 @@ async def process_otp_success(context, id_num: str, otp: str):
         f"🔑 <b>𝙾𝚃𝙿:</b> <code>{otp}</code>\n"
         f"💬 <b>Message:</b> <code>YOUR {service_type} CODE: {otp}</code>"
     )
-
     if OTP_GROUP_ID:
         try:
             await context.bot.send_message(
@@ -711,7 +684,6 @@ async def process_otp_success(context, id_num: str, otp: str):
                 text=group_forward_msg,
                 parse_mode="HTML"
             )
-            logging.info(f"OTP Forwarded to Group {OTP_GROUP_ID} successfully.")
         except Exception as e:
             logging.error(f"Failed to forward OTP to group: {e}")
 
@@ -720,7 +692,6 @@ async def auto_check_otp(context: ContextTypes.DEFAULT_TYPE, user_id: int, id_nu
         await asyncio.sleep(6)
         if id_num not in active_orders:
             break
-
         res = fetch_otp_code(id_num)
         if isinstance(res, dict) and "smsCode" in res and res["smsCode"]:
             otp = res["smsCode"]
@@ -750,7 +721,6 @@ async def sub_amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE
         cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
         await update.message.reply_text("❌ 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝙵𝙴𝙴 𝚂𝚄𝙳𝙷𝚄 <code>30</code> Tk. 𝙴𝙽𝚃𝙴𝚁 <code>30</code> likhun.", parse_mode="HTML", reply_markup=cancel_kb)
         return SUB_AMOUNT
-
     msg = (
         f"💰 <b>𝙰𝙼𝙾𝚄𝙽𝚃:</b> <code>30</code> Tk\n"
         f"⏳ <b>𝚅𝙰𝙻𝙸𝙳𝙸𝚃𝙸:</b> <code>3 Days</code>\n\n"
@@ -773,21 +743,18 @@ async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_
     user = update.effective_user
     photo = update.message.photo[-1]
     txid = context.user_data.get("sub_txid")
-
     admin_kb = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("✅ 𝙰𝙿𝙿𝚁𝙾𝚅𝙴𝙳", callback_data=f"approve_sub_{user.id}"),
             InlineKeyboardButton("❌ 𝚁𝙴𝙹𝙴𝙲𝚃𝙴𝙳", callback_data=f"reject_sub_{user.id}")
         ]
     ])
-
     caption = (
         f"🔔 <b>𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚁𝙴𝙹𝚄𝙴𝚂𝚃!</b>\n\n"
         f"👤 <b>𝚄𝚂𝙴𝚁:</b> {user.full_name} (<code>{user.id}</code>)\n"
         f"💰 <b>𝙰𝙼𝙾𝚄𝙽𝚃:</b> <code>30 Tk</code>\n"
         f"🧾 <b>𝚃𝚁𝚇𝙸𝙳:</b> <code>{txid}</code>"
     )
-
     await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo.file_id, caption=caption, parse_mode="HTML", reply_markup=admin_kb)
     await update.message.reply_text("✅ <b>Apnar subscription request admin-er kache pathano hoyeche!</b> Admin approve korlei bot active hoye jaabe.", parse_mode="HTML")
     return ConversationHandler.END
@@ -804,7 +771,7 @@ async def deposit_binance_selected(update: Update, context: ContextTypes.DEFAULT
     query = update.callback_query
     await query.answer()
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-    await query.message.reply_text("📥 <b>Apni koto USDT pathaben ta likhe janan (Minimum: <code>1</code> USDT, jemon: <code>1</code>, <code>2.5</code>, <code>5</code>):</b>", parse_mode="HTML", reply_markup=cancel_kb)
+    await query.message.reply_text("📥 <b>Apni koto USDT pathaben ta likhe janan (Minimum: <code>1</code> USDT):</b>", parse_mode="HTML", reply_markup=cancel_kb)
     return WAITING_AMOUNT
 
 async def deposit_amount_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -812,16 +779,13 @@ async def deposit_amount_received(update: Update, context: ContextTypes.DEFAULT_
         amount = float(update.message.text.strip())
         if amount < 1.0:
             cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-            await update.message.reply_text("❌ Minimum deposit amount <b>1 USDT</b>. Doya kore 1 ba tar besi amount likhun.", parse_mode="HTML", reply_markup=cancel_kb)
+            await update.message.reply_text("❌ Minimum deposit amount <b>1 USDT</b>.", parse_mode="HTML", reply_markup=cancel_kb)
             return WAITING_AMOUNT
-
         context.user_data["dep_amount"] = amount
-        
         msg = (
             f"💰 <b>Deposit Amount:</b> <code>{amount}</code> USDT\n\n"
             f"👇 <b>Nicher Binance Pay ID-te Binance app theke Pay/Send Money Korun:</b>\n"
             f"🆔 <b>Binance Pay ID:</b> <code>{BINANCE_ID}</code>\n\n"
-            f"⚠️ <b>Note:</b> Minimum deposit 1 USDT. Binance Pay-er madhyome kono extra fee charai pathano jabe.\n\n"
             f"Dollar pathanor por apnar <b>Order ID / TxID</b>-ti likhe message din:"
         )
         cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
@@ -829,7 +793,7 @@ async def deposit_amount_received(update: Update, context: ContextTypes.DEFAULT_
         return WAITING_TXID
     except ValueError:
         cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-        await update.message.reply_text("❌ Sothik shongkha likhun (jemon: <code>1</code> ba <code>5</code>).", parse_mode="HTML", reply_markup=cancel_kb)
+        await update.message.reply_text("❌ Sothik shongkha likhun.", parse_mode="HTML", reply_markup=cancel_kb)
         return WAITING_AMOUNT
 
 async def deposit_txid_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -844,23 +808,20 @@ async def deposit_screenshot_received(update: Update, context: ContextTypes.DEFA
     photo = update.message.photo[-1]
     amount = context.user_data.get("dep_amount")
     txid = context.user_data.get("dep_txid")
-
     admin_kb = InlineKeyboardMarkup([
         [
             InlineKeyboardButton("✅ Approve", callback_data=f"approve_dep_{user.id}_{amount}"),
             InlineKeyboardButton("❌ Reject", callback_data=f"reject_dep_{user.id}")
         ]
     ])
-
     caption = (
         f"📥 <b>Notun Deposit Request!</b>\n\n"
         f"👤 <b>User:</b> {user.full_name} (<code>{user.id}</code>)\n"
         f"💰 <b>Amount:</b> <code>${amount}</code> USDT\n"
         f"🧾 <b>TxID:</b> <code>{txid}</code>"
     )
-
     await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo.file_id, caption=caption, parse_mode="HTML", reply_markup=admin_kb)
-    await update.message.reply_text("✅ <b>Apnar deposit request admin-er kache pathano hoyeche!</b> Jaachai kore druto balance jukto kora hobe.", parse_mode="HTML")
+    await update.message.reply_text("✅ <b>Apnar deposit request admin-er kache pathano hoyeche!</b>", parse_mode="HTML")
     return ConversationHandler.END
 
 async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -923,11 +884,9 @@ async def admin_add_bal_amt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         amt = float(update.message.text.strip())
         uid = context.user_data.get("target_add_uid")
         users_col.update_one({"user_id": uid}, {"$inc": {"balance": amt}})
-        
         u = get_user(uid)
         new_bal = u.get("balance", 0.0) if u else amt
-        
-        await update.message.reply_text(f"✅ Successfully added <code>${amt}</code> USDT to User <code>{uid}</code>. Notun Balance: <code>${new_bal:.4f}</code> USDT", parse_mode="HTML")
+        await update.message.reply_text(f"✅ Successfully added <code>${amt}</code> USDT to User <code>{uid}</code>.", parse_mode="HTML")
         await context.bot.send_message(chat_id=uid, text=f"🎉 <b>Admin apnar account-e <code>${amt}</code> USDT balance add koreche!</b>", parse_mode="HTML")
     except ValueError:
         await update.message.reply_text("❌ Invalid Amount.")
@@ -943,25 +902,18 @@ async def admin_zero_bal_process(update: Update, context: ContextTypes.DEFAULT_T
     try:
         uid = int(update.message.text.strip())
         result = users_col.update_one({"user_id": uid}, {"$set": {"balance": 0.0}})
-        
         if result.matched_count > 0:
             await update.message.reply_text(f"✅ Successfully User <code>{uid}</code>-er balance <b>0 USDT</b> kora hoyeche.", parse_mode="HTML")
-            try:
-                await context.bot.send_message(chat_id=uid, text="⚠️ <b>Admin apnar account-er balance 0 kore diyeche.</b>", parse_mode="HTML")
-            except Exception:
-                pass
         else:
             await update.message.reply_text(f"❌ Database-e <code>{uid}</code> ID-er kono user pawa jayni.", parse_mode="HTML")
-            
     except ValueError:
-        await update.message.reply_text("❌ Invalid User ID! Sothik shongkha likhun.")
+        await update.message.reply_text("❌ Invalid User ID!")
     return ConversationHandler.END
 
-# ADMIN RATE SETTERS FOR HK & CHILE
 async def admin_rate_wa_hk_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("💵 <b>Hong Kong (HK) WhatsApp (WA)-er notun Bot Rate USDT-te likhun (jemon: <code>0.075</code> ba <code>0.10</code>):</b>", parse_mode="HTML")
+    await query.message.reply_text("💵 <b>Hong Kong (HK) WhatsApp (WA)-er notun Bot Rate USDT-te likhun:</b>", parse_mode="HTML")
     return ADMIN_RATE_WA_HK_SET
 
 async def admin_rate_wa_hk_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -976,7 +928,7 @@ async def admin_rate_wa_hk_process(update: Update, context: ContextTypes.DEFAULT
 async def admin_rate_wa_cl_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("💵 <b>Chile (CL) WhatsApp (WA)-er notun Bot Rate USDT-te likhun (jemon: <code>0.087</code> ba <code>0.10</code>):</b>", parse_mode="HTML")
+    await query.message.reply_text("💵 <b>Chile (CL) WhatsApp (WA)-er notun Bot Rate USDT-te likhun:</b>", parse_mode="HTML")
     return ADMIN_RATE_WA_CL_SET
 
 async def admin_rate_wa_cl_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -991,7 +943,7 @@ async def admin_rate_wa_cl_process(update: Update, context: ContextTypes.DEFAULT
 async def admin_rate_tg_hk_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("💵 <b>Hong Kong (HK) Telegram (TG)-er notun Bot Rate USDT-te likhun (jemon: <code>0.10</code> ba <code>0.12</code>):</b>", parse_mode="HTML")
+    await query.message.reply_text("💵 <b>Hong Kong (HK) Telegram (TG)-er notun Bot Rate USDT-te likhun:</b>", parse_mode="HTML")
     return ADMIN_RATE_TG_HK_SET
 
 async def admin_rate_tg_hk_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1006,7 +958,7 @@ async def admin_rate_tg_hk_process(update: Update, context: ContextTypes.DEFAULT
 async def admin_rate_tg_cl_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    await query.message.reply_text("💵 <b>Chile (CL) Telegram (TG)-er notun Bot Rate USDT-te likhun (jemon: <code>0.10</code> ba <code>0.12</code>):</b>", parse_mode="HTML")
+    await query.message.reply_text("💵 <b>Chile (CL) Telegram (TG)-er notun Bot Rate USDT-te likhun:</b>", parse_mode="HTML")
     return ADMIN_RATE_TG_CL_SET
 
 async def admin_rate_tg_cl_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1018,7 +970,6 @@ async def admin_rate_tg_cl_process(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text("❌ Invalid Rate Format!")
     return ConversationHandler.END
 
-# ADMIN BROADCAST HANDLERS
 async def admin_broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -1030,37 +981,29 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
     all_users = list(users_col.find())
     success_count = 0
     fail_count = 0
-    
     status_msg = await update.message.reply_text(f"⏳ <b>Broadcast Process Shuru Hoche... Total Users: {len(all_users)}</b>", parse_mode="HTML")
-    
     for u in all_users:
         uid = u.get("user_id")
         if not uid:
             continue
         try:
             if update.message.photo:
-                photo_file_id = update.message.photo[-1].file_id
-                caption_text = update.message.caption or ""
-                caption_entities = update.message.caption_entities
                 await context.bot.send_photo(
                     chat_id=uid, 
-                    photo=photo_file_id, 
-                    caption=caption_text,
-                    caption_entities=caption_entities
+                    photo=update.message.photo[-1].file_id, 
+                    caption=update.message.caption or "",
+                    caption_entities=update.message.caption_entities
                 )
             else:
-                text_content = update.message.text or ""
-                text_entities = update.message.entities
                 await context.bot.send_message(
                     chat_id=uid, 
-                    text=text_content,
-                    entities=text_entities
+                    text=update.message.text or "",
+                    entities=update.message.entities
                 )
             success_count += 1
             await asyncio.sleep(0.05)
         except Exception:
             fail_count += 1
-
     result_text = (
         f"📢 <b>Broadcast Shes Huyeche!</b>\n\n"
         f"✅ <b>Success:</b> <code>{success_count}</code> Users\n"
@@ -1069,9 +1012,21 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
     await status_msg.edit_text(result_text, parse_mode="HTML")
     return ConversationHandler.END
 
-# Async Main Runner
-async def run_bot():
-    app = Application.builder().token(BOT_TOKEN).build()
+# Flask Webhook Endpoint Setup
+telegram_app = None
+
+@flask_app.route(f"/{BOT_TOKEN}", methods=["POST"])
+def webhook_handler():
+    if request.method == "POST":
+        json_data = request.get_json(force=True)
+        update = Update.de_json(json_data, telegram_app.bot)
+        # Process update asynchronously in the running event loop
+        asyncio.run_coroutine_threadsafe(telegram_app.process_update(update), telegram_app.loop)
+    return "OK", 200
+
+async def setup_telegram_app():
+    global telegram_app
+    telegram_app = Application.builder().token(BOT_TOKEN).build()
 
     group_verify_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(group_verify_start, pattern="^start_group_verify$")],
@@ -1162,37 +1117,53 @@ async def run_bot():
     admin_broadcast_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(admin_broadcast_start, pattern="^admin_broadcast_start$")],
         states={ADMIN_BROADCAST: [MessageHandler((filters.TEXT | filters.PHOTO) & ~filters.COMMAND, admin_broadcast_process)]},
-        fallbacks=[CallbackQueryHandler(cancel_flow, pattern="^cancel_flow_cb$")]
+        fallbacks=[CallbackQueryHandler(ccancel_flow if 'ccancel_flow' in globals() else cancel_flow, pattern="^cancel_flow_cb$")]
     )
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(group_verify_conv)
-    app.add_handler(sub_conv)
-    app.add_handler(deposit_conv)
-    app.add_handler(admin_ban_conv)
-    app.add_handler(admin_unban_conv)
-    app.add_handler(admin_add_bal_conv)
-    app.add_handler(admin_zero_bal_conv)
-    app.add_handler(admin_rate_wa_hk_conv)
-    app.add_handler(admin_rate_wa_cl_conv)
-    app.add_handler(admin_rate_tg_hk_conv)
-    app.add_handler(admin_rate_tg_cl_conv)
-    app.add_handler(admin_broadcast_conv)
-    app.add_handler(CallbackQueryHandler(handle_callbacks))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_messages))
+    telegram_app.add_handler(CommandHandler("start", start))
+    telegram_app.add_handler(group_verify_conv)
+    telegram_app.add_handler(sub_conv)
+    telegram_app.add_handler(deposit_conv)
+    telegram_app.add_handler(admin_ban_conv)
+    telegram_app.add_handler(admin_unban_conv)
+    telegram_app.add_handler(admin_add_bal_conv)
+    telegram_app.add_handler(admin_zero_bal_conv)
+    telegram_app.add_handler(admin_rate_wa_hk_conv)
+    telegram_app.add_handler(admin_rate_wa_cl_conv)
+    telegram_app.add_handler(admin_rate_tg_hk_conv)
+    telegram_app.add_handler(admin_rate_tg_cl_conv)
+    telegram_app.add_handler(admin_broadcast_conv)
+    telegram_app.add_handler(CallbackQueryHandler(handle_callbacks))
+    telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_messages))
 
-    async with app:
-        await app.start()
-        await app.updater.start_polling()
-        logging.info("🤖 Bot startup sequence completed. Polling started successfully.")
-        await asyncio.Event().wait()
+    await telegram_app.initialize()
+    
+    # Automatically set webhook if RENDER_EXTERNAL_URL is present, or fallback
+    if RENDER_EXTERNAL_URL:
+        webhook_url = f"{RENDER_EXTERNAL_URL.rstrip('/')}/{BOT_TOKEN}"
+        await telegram_app.bot.set_webhook(url=webhook_url)
+        logging.info(f"Webhook set to: {webhook_url}")
+    else:
+        logging.warning("RENDER_EXTERNAL_URL not found! Please set webhook manually if needed.")
+
+    await telegram_app.start()
+
+def run_flask_app():
+    port = int(os.environ.get("PORT", 8080))
+    flask_app.run(host="0.0.0.0", port=port)
 
 def main():
-    threading.Thread(target=run_flask, daemon=True).start()
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
+    
+    # Initialize app in asyncio loop
+    loop.run_until_complete(setup_telegram_app())
+    
+    # Run Flask in background thread sharing the same event loop or thread
+    threading.Thread(target=run_flask_app, daemon=True).start()
+    
     try:
-        loop.run_until_complete(run_bot())
+        loop.run_forever()
     except KeyboardInterrupt:
         pass
     finally:
