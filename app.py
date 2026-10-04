@@ -232,11 +232,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u_data = get_or_create_user(user_id, user.full_name)
 
     if u_data.get("is_banned", False):
-        await update.message.reply_text("<emoji id=5409048419211682843>❌</emoji> 𝙱𝙰𝙽 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽 𝙲𝙾𝙽𝚃𝙰𝙲𝚃 𝙰𝙳𝙼𝙸𝙽.", parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("❌ 𝙱𝙰𝙽 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽 𝙲𝙾𝙽𝚃𝙰𝙲𝚃 𝙰𝙳𝙼𝙸𝙽.", parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
         return
 
     if not is_bot_active() and user_id != ADMIN_ID:
-        await update.message.reply_text("<emoji id=5206607081334906820>🚧</emoji> **ʙᴏᴛ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴀɪɴɪɴɢ ʙʏ ᴀᴅᴍɪɴ.** ᴘʟᴇᴀsᴇ ᴛʀʏ sᴏᴍᴇ ᴛɪᴍᴇ.", parse_mode="HTML")
+        await update.message.reply_text("🚧 **ʙᴏᴛ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴀɪɴɪɴɢ ʙʏ ᴀᴅᴍɪɴ.** ᴘʟᴇᴀsᴇ ᴛʀʏ sᴏᴍᴇ ᴛɪᴍᴇ.", parse_mode="HTML")
         return
 
     if not is_subscribed(user_id):
@@ -245,28 +245,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 [InlineKeyboardButton("✅ Verify Group Membership", callback_data="start_group_verify")]
             ])
             msg = (
-                f"<emoji id=5240241223632954241>👋</emoji> **Hello {user.full_name}!**\n\n"
-                f"<emoji id=5210952531676504517>❌</emoji> 𝚈𝙾𝚄 𝙳𝙾𝙽'𝚃 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚃𝙷𝙴 𝙱𝙾𝚃!\n"
+                f"👋 **Hello {user.full_name}!**\n\n"
+                f"❌ 𝚈𝙾𝚄 𝙳𝙾𝙽'𝚃 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚃𝙷𝙴 𝙱𝙾𝚃!\n"
                 f"ʙᴏᴛ ʙᴇʙᴏʜᴀʀ ᴋᴏʀᴛᴇ ᴄʜᴀɪʟᴇ prothomti amader **Private Group**-e join thakte hobe.\n\n"
-                f"<emoji id=5440660757194744323>📌</emoji> Nicher button-e click kore apnar group join-er proof (Username & Screenshot) admin-er kache pathan:"
+                f"📌 Nicher button-e click kore apnar group join-er proof (Username & Screenshot) admin-er kache pathan:"
             )
             await update.message.reply_text(msg, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
-            await update.message.reply_text("<emoji id=5436113877181941026>👇</emoji> **Verification:**", parse_mode="HTML", reply_markup=verify_kb)
+            await update.message.reply_text("👇 **Verification:**", parse_mode="HTML", reply_markup=verify_kb)
             return
 
         sub_kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("💳 𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽(30 Tk / 3 Days)", callback_data="buy_sub_start")]
         ])
         msg = (
-            f"<emoji id=5416081784641168838>👋</emoji> **Hello {user.full_name}!**\n\n"
-            f"<emoji id=5411225014148014586>❌</emoji> 𝚈𝙾𝚄 𝙳𝙾𝙽'𝚃 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚃𝙷𝙴 𝙱𝙾𝚃!\n"
+            f"👋 **Hello {user.full_name}!**\n\n"
+            f"❌ 𝚈𝙾𝚄 𝙳𝙾𝙽'𝚃 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚃𝙷𝙴 𝙱𝙾𝚃!\n"
             f"ʙᴏᴛ ʙᴇʙᴏʜᴀʀ ᴋᴏʀᴛᴇ ᴄʜᴀɪʟᴇ sᴜʙsᴄʀɪᴘᴛɪᴏɴ ɴɪᴛᴇ ʜᴏʙᴇ.\n\n"
-            f"<emoji id=5244837092042750681>📌</emoji> **𝗣𝗥𝗜𝗖𝗘:** `30 Tk`\n"
-            f"<emoji id=5424972470023104089>⏳</emoji> **𝗩𝗔𝗟𝗜𝗗𝗜𝗧𝗬:** `3 Days`\n\n"
+            f"📌 **𝗣𝗥𝗜𝗖𝗘:** `30 Tk`\n"
+            f"⏳ **𝗩𝗔𝗟𝗜𝗗𝗜𝗧𝗬:** `3 Days`\n\n"
             f"ɴ𝚒𝚌𝚑𝚎𝚛 𝚖𝚎𝚗𝚞 𝚝𝚑𝚎𝚔𝚎 𝚌𝚕𝚒𝚌𝚔 𝚔𝚘𝚛𝚎 𝚜𝚞𝚋𝚜𝚌𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚔𝚒𝚗𝚞𝚗:"
         )
         await update.message.reply_text(msg, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
-        await update.message.reply_text("<emoji id=5282843764451195532>👇</emoji> **𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽:**", parse_mode="HTML", reply_markup=sub_kb)
+        await update.message.reply_text("👇 **𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽:**", parse_mode="HTML", reply_markup=sub_kb)
         return
 
     exp_time = u_data.get("subscription_expiry")
@@ -278,13 +278,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     curr_service = u_data.get("selected_service", "tg").upper()
 
     welcome_msg = (
-        f"<emoji id=5271604874419647061>👋</emoji> **𝚆𝙴𝙻𝙲𝙾𝙼𝙴 𝚁𝙴𝚇 𝙿𝚁𝙸𝚅𝙰𝚃𝙴 𝙱𝙾𝚃!**\n\n"
-        f"<emoji id=5427168083074628963>⚙️</emoji> **𝚁𝙴𝙲𝙴𝙽𝚃 𝚂𝙴𝚃𝚄𝙿:**\n"
+        f"👋 **𝚆𝙴𝙻𝙲𝙾𝙼𝙴 𝚁𝙴𝚇 𝙿𝚁𝙸𝚅𝙰𝚃𝙴 𝙱𝙾𝚃!**\n\n"
+        f"⚙️ **𝚁𝙴𝙲𝙴𝙽𝚃 𝚂𝙴𝚃𝚄𝙿:**\n"
         f"• 𝙲𝙾𝚄𝙽𝚃𝚁𝙸𝙴𝚂: `{curr_country}` {country_flag}\n"
         f"• Service: `{curr_service}`\n"
         f"• 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${u_data.get('balance', 0.0):.4f} USDT`\n"
         f"• 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚅𝙰𝙻𝙸𝙳 𝚃𝙸𝙻𝙻: `{exp_str}`\n\n"
-        f"<emoji id=5397916757333654639>𝙺𝙰𝙹</emoji> 𝙺𝙾𝚁𝚃𝙴 𝙽𝙸𝙲𝙷𝙴 𝙳𝙴𝙰 𝙼𝙴𝙽𝚄 𝚄𝚂𝙴 𝙺𝙾𝚁𝙴𝙽:"
+        f"𝙺𝙰𝙹 𝙺𝙾𝚁𝚃𝙴 𝙽𝙸𝙲𝙷𝙴 𝙳𝙴𝙰 𝙼𝙴𝙽𝚄 𝚄𝚂𝙴 𝙺𝙾𝚁𝙴𝙽:"
     )
     await update.message.reply_text(welcome_msg, parse_mode="HTML", reply_markup=get_main_keyboard(user_id))
 
@@ -295,11 +295,11 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u_data = get_or_create_user(user_id, user.full_name)
 
     if u_data.get("is_banned", False):
-        await update.message.reply_text("<emoji id=5397916757333654639>❌</emoji> 𝚈𝙾𝚄𝚁 𝙰𝙲𝙲𝙾𝚄𝙽𝚃 𝙷𝙰𝚂 𝙱𝙴𝙴𝙽 𝙱𝙰𝙽 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽.", parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("❌ 𝚈𝙾𝚄𝚁 𝙰𝙲𝙲𝙾𝚄𝙽𝚃 𝙷𝙰𝚂 𝙱𝙴𝙴𝙽 𝙱𝙰𝙽 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽.", parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
         return
 
     if not is_bot_active() and user_id != ADMIN_ID:
-        await update.message.reply_text("<emoji id=5386367538735104399>🚧</emoji> **𝙱𝙾𝚃 𝚄𝙽𝙳𝙴𝚁 𝙼𝙰𝙸𝙽𝚃𝙰𝙸𝙽𝚂 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽.** 𝚃𝚁𝙸 𝚂𝙾𝙼𝙴 𝚃𝙸𝙼𝙴 𝙰𝙶𝙰𝙸𝙽.", parse_mode="HTML")
+        await update.message.reply_text("🚧 **𝙱𝙾𝚃 𝚄𝙽𝙳𝙴𝚁 𝙼𝙰𝙸𝙽𝚃𝙰𝙸𝙽𝚂 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽.** 𝚃𝚁𝙸 𝚂𝙾𝙼𝙴 𝚃𝙸𝙼𝙴 𝙰𝙶𝙰𝙸𝙽.", parse_mode="HTML")
         return
 
     if not is_subscribed(user_id):
@@ -314,7 +314,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         sub_kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("💳 𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽(30 Tk / 3 Days)", callback_data="buy_sub_start")]
         ])
-        await update.message.reply_text("<emoji id=5395695537687123235>❌</emoji> 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝙴𝚇𝙿𝙸𝚁𝙴𝚂! 𝙱𝚄𝚈 𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽.", parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("❌ 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝙴𝚇𝙿𝙸𝚁𝙴𝚂! 𝙱𝚄𝚈 𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽.", parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
         await update.message.reply_text("👇 **𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽:**", parse_mode="HTML", reply_markup=sub_kb)
         return
 
@@ -322,10 +322,10 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if text == "💳 𝙰𝙲𝙲𝙾𝚄𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴":
         bot_bal = u_data.get("balance", 0.0)
-        msg = f"<emoji id=5253742260054409879>💰</emoji> **𝙼𝚈 𝙱𝙰𝙻𝙰𝙽𝙲𝙴:** `${bot_bal:.4f}` USDT"
+        msg = f"💰 **𝙼𝚈 𝙱𝙰𝙻𝙰𝙽𝙲𝙴:** `${bot_bal:.4f}` USDT"
         if user_id == ADMIN_ID:
             site_bal = get_vak_balance()
-            msg += f"\n<emoji id=5447410659077661506>🏦</emoji> **𝙿𝙰𝙽𝙴𝙻 𝙱𝙰𝙻𝙰𝙽𝙲𝙴 :** `${site_bal:.4f}` USD"
+            msg += f"\n🏦 **𝙿𝙰𝙽𝙴𝙻 𝙱𝙰𝙻𝙰𝙽𝙲𝙴 :** `${site_bal:.4f}` USD"
         await update.message.reply_text(msg, parse_mode="HTML")
         return
 
@@ -335,7 +335,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         exp_time = u_data.get("subscription_expiry")
         exp_str = exp_time.strftime("%Y-%m-%d %H:%M") if (exp_time and user_id != ADMIN_ID) else "Unlimited (Admin)"
         profile_msg = (
-            f"<emoji id=5332455502917949981>👤</emoji> **Apnar Profile Info:**\n\n"
+            f"👤 **Apnar Profile Info:**\n\n"
             f"🆔 **User ID:** `{user_id}`\n"
             f"📛 **Name:** {user.full_name}\n"
             f"💵 **Balance:** `${bot_bal:.4f}` USDT\n"
@@ -351,17 +351,17 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [KeyboardButton("COUNTRY: HK 🇭🇰 (HONG KONG)"), KeyboardButton("COUNTRY: CHILE 🇨🇱 (CL)")],
             [KeyboardButton("🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄")]
         ]
-        await update.message.reply_text("<emoji id=5429651785352501917>🌐</emoji> **SELECT YOUR COUNTRY:**", parse_mode="HTML", reply_markup=ReplyKeyboardMarkup(country_kb, resize_keyboard=True))
+        await update.message.reply_text("🌐 **SELECT YOUR COUNTRY:**", parse_mode="HTML", reply_markup=ReplyKeyboardMarkup(country_kb, resize_keyboard=True))
         return
 
     if "HK" in text:
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "hk"}})
-        await update.message.reply_text("<emoji id=5334759662677957452>✅</emoji> Country set: `HONG KONG (HK)` 🇭🇰", parse_mode="HTML", reply_markup=get_main_keyboard(user_id))
+        await update.message.reply_text("✅ Country set: `HONG KONG (HK)` 🇭🇰", parse_mode="HTML", reply_markup=get_main_keyboard(user_id))
         return
 
     if "CHILE" in text or "CL" in text:
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": "cl"}})
-        await update.message.reply_text("<emoji id=5337010556253543833>✅</emoji> Country set: `CHILE (CL)` 🇨🇱", parse_mode="HTML", reply_markup=get_main_keyboard(user_id))
+        await update.message.reply_text("✅ Country set: `CHILE (CL)` 🇨🇱", parse_mode="HTML", reply_markup=get_main_keyboard(user_id))
         return
 
     # SERVICE SELECTION
@@ -371,17 +371,17 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [KeyboardButton("𝚂𝙴𝚁𝚅𝙸𝙲𝙴: WA (𝚆𝙷𝙰𝚃𝚂𝙰𝙿𝙿)")],
             [KeyboardButton("🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄")]
         ]
-        await update.message.reply_text("<emoji id=5269657987219232606>📱</emoji> **SELECT YOUR SERVICE:**", parse_mode="HTML", reply_markup=ReplyKeyboardMarkup(service_kb, resize_keyboard=True))
+        await update.message.reply_text("📱 **SELECT YOUR SERVICE:**", parse_mode="HTML", reply_markup=ReplyKeyboardMarkup(service_kb, resize_keyboard=True))
         return
 
     if "TG" in text or "TELEGRAM" in text.upper():
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_service": "tg"}})
-        await update.message.reply_text("<emoji id=5377774889723798543>✅</emoji> 𝚂𝙴𝚁𝚅𝙸𝙲𝙴 𝚂𝙴𝚃: `TELEGRAM (TG)`", parse_mode="HTML", reply_markup=get_main_keyboard(user_id))
+        await update.message.reply_text("✅ 𝚂𝙴𝚁𝚅𝙸𝙲𝙴 𝚂𝙴𝚃: `TELEGRAM (TG)`", parse_mode="HTML", reply_markup=get_main_keyboard(user_id))
         return
 
     if "WA" in text or "WHATSAPP" in text.upper():
         users_col.update_one({"user_id": user_id}, {"$set": {"selected_service": "wa"}})
-        await update.message.reply_text("<emoji id=5379947378671395461>✅</emoji> 𝚂𝙴𝚁𝚅𝙸𝙲𝙴 𝚂𝙴𝚃: `WHATSAPP (WA)`", parse_mode="HTML", reply_markup=get_main_keyboard(user_id))
+        await update.message.reply_text("✅ 𝚂𝙴𝚁𝚅𝙸𝙲𝙴 𝚂𝙴𝚃: `WHATSAPP (WA)`", parse_mode="HTML", reply_markup=get_main_keyboard(user_id))
         return
 
     if text == "🔙 𝙼𝙰𝙸𝙽 𝙼𝙴𝙽𝚄":
@@ -392,7 +392,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_has_active = any(order.get("user_id") == user_id for order in active_orders.values())
         if user_has_active:
             await update.message.reply_text(
-                "<emoji id=5348469219761626211>⚠️</emoji> **অলরেডি একটি নম্বর কেনা রয়েছে!**\nনতুন নম্বর কেনার আগে আগের নম্বরটি ব্যবহার সম্পন্ন করুন অথবা Cancel করুন.",
+                "⚠️ **অলরেডি একটি নম্বর কেনা রয়েছে!**\nনতুন নম্বর কেনার আগে আগের নম্বরটি ব্যবহার সম্পন্ন করুন অথবা Cancel করুন.",
                 parse_mode="HTML"
             )
             return
@@ -417,12 +417,12 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if user_bal < bot_rate:
             await update.message.reply_text(
-                f"<emoji id=5348212415077064131>❌</emoji> 𝚂𝙾𝚁𝚁𝚈 𝙳𝙾 𝙽𝙾𝚃𝙴 𝙰𝙽𝙰𝙵 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${bot_rate}` USDT, 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${user_bal:.4f}` USDT.\n𝙳𝙸𝙿𝙾𝚂𝙸𝚃 𝙺𝙾𝚁𝚄𝙽.",
+                f"❌ 𝚂𝙾𝚁𝚁𝚈 𝙳𝙾 𝙽𝙾𝚃𝙴 𝙰𝙽𝙰𝙵 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${bot_rate}` USDT, 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${user_bal:.4f}` USDT.\n𝙳𝙸𝙿𝙾𝚂𝙸𝚃 𝙺𝙾𝚁𝚄𝙽.",
                 parse_mode="HTML"
             )
             return
 
-        status_msg = await update.message.reply_text(f"<emoji id=5445355530111437729>⏳</emoji> `{country.upper()}` {country_flag} BUYING NUMBER... WAIT A FEW SECONDS.", parse_mode="HTML")
+        status_msg = await update.message.reply_text(f"⏳ `{country.upper()}` {country_flag} BUYING NUMBER... WAIT A FEW SECONDS.", parse_mode="HTML")
 
         res = buy_vak_number(service=service, country=country, max_price=max_price_limit)
 
@@ -437,7 +437,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
 
             sent_msg = await update.message.reply_text(
-                f"<emoji id=5980930633298350051>✅</emoji> **𝙽𝚄𝙼𝙱𝙴𝚁 𝙱𝚄𝙸𝙻𝙳 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝚈!**\n\n"
+                f"✅ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙱𝚄𝙸𝙻𝙳 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝚈!**\n\n"
                 f"📱 **Number:** `<code>{phone_num}</code>`\n"
                 f"🆔 **ID Num:** `{id_num}`\n"
                 f"🌍 **Country:** `{country.upper()}` {country_flag}\n"
@@ -465,7 +465,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             asyncio.create_task(auto_check_otp(context, user_id, id_num, str(phone_num), sent_msg.message_id))
         else:
             err_msg = res.get("error", "Stock Out!") if isinstance(res, dict) else "Stock Out!"
-            await update.message.reply_text(f"<emoji id=5215538285438311443>❌</emoji> `{err_msg}`", parse_mode="HTML")
+            await update.message.reply_text(f"❌ `{err_msg}`", parse_mode="HTML")
         return
 
     if text == "⚙️ 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻" and user_id == ADMIN_ID:
@@ -479,14 +479,14 @@ async def send_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
         [InlineKeyboardButton("💵 SET HK WA PRICE", callback_data="admin_rate_wa_hk_start"), InlineKeyboardButton("💵 SET CL WA PRICE", callback_data="admin_rate_wa_cl_start")],
         [InlineKeyboardButton("💵 SET HK TG PRICE", callback_data="admin_rate_tg_hk_start"), InlineKeyboardButton("💵 SET CL TG PRICE", callback_data="admin_rate_tg_cl_start")],
-        [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝙻𝙰𝙽𝙲𝙴", callback_data="admin_zero_bal_start")],
+        [InlineKeyboardButton("➕ Add Balance", callback_data="admin_add_bal_start"), InlineKeyboardButton("🔄 𝗭𝗘𝗥𝗢 𝗕𝗔𝙻𝙰𝙽𝙲𝗘", callback_data="admin_zero_bal_start")],
         [InlineKeyboardButton("📢 𝗕𝗥𝗢𝙳𝙲𝙰𝚂𝚃 𝙰𝙻𝙻", callback_data="admin_broadcast_start")],
         [InlineKeyboardButton(f"𝗕𝗢𝗧 𝗦𝗧𝗔𝗧𝗨𝗦: {status_str}", callback_data="admin_toggle_bot")]
     ])
     if update.message:
-        await update.message.reply_text("<emoji id=5289967092265660622>🛠</emoji> **Admin Control Panel:**", reply_markup=admin_kb, parse_mode="HTML")
+        await update.message.reply_text("🛠 **Admin Control Panel:**", reply_markup=admin_kb, parse_mode="HTML")
     elif update.callback_query:
-        await update.callback_query.message.reply_text("<emoji id=5960914406366779993>🛠</emoji> **Admin Control Panel:**", reply_markup=admin_kb, parse_mode="HTML")
+        await update.callback_query.message.reply_text("🛠 **Admin Control Panel:**", reply_markup=admin_kb, parse_mode="HTML")
 
 async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -502,10 +502,10 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             }))
             
             if not subscribed_users:
-                await query.message.reply_text("<emoji id=5292166459118606932>📋</emoji> Currently, there are no active subscribed users.", parse_mode="HTML")
+                await query.message.reply_text("📋 Currently, there are no active subscribed users.", parse_mode="HTML")
                 return
             
-            msg = f"<emoji id=5222350726340032308>👥</emoji> **Active Subscribed Users ({len(subscribed_users)}):**\n\n"
+            msg = f"👥 **Active Subscribed Users ({len(subscribed_users)}):**\n\n"
             for u in subscribed_users:
                 uid = u.get("user_id", "N/A")
                 raw_name = str(u.get("full_name", "User"))
