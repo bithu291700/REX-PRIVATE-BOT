@@ -11,6 +11,19 @@ import requests
 from aiogram import Bot, Dispatcher, F, types
 from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.fsm.state import State, StatesGroup
+import logging
+import os
+import threading
+import asyncio
+import re
+from datetime import datetime, timedelta
+from flask import Flask, request
+from pymongo import MongoClient
+import requests
+
+from aiogram import Bot, Dispatcher, F, types
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram.fsm.state import State, StatesGroup
 from aiogram.fsm.context import FSMContext
 from aiogram.types import (
     ReplyKeyboardMarkup,
@@ -53,7 +66,7 @@ flask_app = Flask("")
 
 @flask_app.route("/")
 def home():
-    return "Rex Private Telegram Bot is Active (Aiogram)!", 200
+    return "Rex Private Telegram Bot is Active (Aiogram Webhook)!", 200
 
 @flask_app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
@@ -399,7 +412,7 @@ async def buy_number_handler(message: types.Message):
             f"🆔 **ID Num:** `{id_num}`\n"
             f"🌍 **Country:** `{country.upper()}` {country_flag}\n"
             f"💬 **Service:** `{service.upper()}`\n"
-            f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝙲𝙀 𝙆𝘼𝙏𝘽𝙀)*\n\n"
+            f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙽𝙲𝙴 𝙆𝘼𝙏𝘽𝙀)*\n\n"
             f"⏳ *𝙾𝚃𝙿 𝙿𝙾𝚆𝙴𝚁 𝙹𝙾𝙽𝙽𝙾 𝙾𝙿𝙴𝙺𝙺𝙷𝙰 𝙺𝙾𝚁𝚄𝙽...*",
             parse_mode="HTML",
             reply_markup=inline_kb
@@ -424,7 +437,7 @@ async def buy_number_handler(message: types.Message):
         err_msg = res.get("error", "Stock Out!") if isinstance(res, dict) else "Stock Out!"
         await message.answer(f"❌ `{err_msg}`")
 
-@dp.message(F.text == "⚙️ 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻")
+@dp.message(F.text == "⚙️️ 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻")
 async def admin_panel_text(message: types.Message):
     if message.from_user.id == ADMIN_ID:
         await send_admin_panel(message)
@@ -566,7 +579,7 @@ async def cancel_flow_cb(query: types.CallbackQuery, state: FSMContext):
     await query.answer()
     await query.message.answer("❌ Process batil kora hoyeche.")
 
-# Group Verification Conversation Handlers (Aiogram FSM)
+# Group Verification Conversation Handlers
 @dp.callback_query(F.data == "start_group_verify")
 async def group_verify_start(query: types.CallbackQuery, state: FSMContext):
     await query.answer()
@@ -603,7 +616,7 @@ async def group_verify_screenshot(message: types.Message, state: FSMContext):
     await message.answer("✅ **Apnar verification request admin-er kache pathano hoyeche!** Admin check kore verify korlei apnake subscription option dewa hobe.")
     await state.clear()
 
-# Subscription Flow Handlers (Aiogram FSM)
+# Subscription Flow Handlers
 @dp.callback_query(F.data == "buy_sub_start")
 async def sub_start(query: types.CallbackQuery, state: FSMContext):
     await query.answer()
@@ -667,7 +680,7 @@ async def sub_screenshot_received(message: types.Message, state: FSMContext):
     await message.answer("✅ **Apnar subscription request admin-er kache pathano hoyeche!** Admin approve korlei bot active hoye jaabe.")
     await state.clear()
 
-# Deposit Flow Handlers (Aiogram FSM)
+# Deposit Flow Handlers
 @dp.message(F.text == "💵 𝙳𝙸𝙿𝙾𝚂𝙸𝚃")
 async def deposit_start(message: types.Message, state: FSMContext):
     payment_kb = InlineKeyboardMarkup(inline_keyboard=[
@@ -994,12 +1007,9 @@ async def setup_webhook():
         await bot.set_webhook(url=webhook_url)
         logging.info(f"Webhook set to: {webhook_url}")
 
-async def main():
-    threading.Thread(target=run_flask, daemon=True).start()
-    if RENDER_EXTERNAL_URL:
-        await setup_webhook()
-    logging.info("🤖 Aiogram Bot startup completed. Running with Flask Webhook.")
-    await dp.start_polling(bot)
-
+# Server Entry Point (Webhook Mode Only)
 if __name__ == "__main__":
-    asyncio.run(main())
+    if RENDER_EXTERNAL_URL:
+        asyncio.run(setup_webhook())
+    logging.info("🤖 Starting Flask Webhook Server for Aiogram Bot...")
+    run_flask()
