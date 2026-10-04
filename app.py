@@ -88,7 +88,7 @@ def get_country_flag(country_code: str) -> str:
     elif code == "cl":
         # এখানে CL এর জন্য প্রিমিয়াম অ্যানিমেটেড ইমোজি ট্যাগ দিন (আপনার কাস্টম ইমোজি আইডি বসান)
         return '<emoji id="5222350726340032308">🇨🇱</emoji>'
-    return '<emoji id="YOUR_DEFAULT_EMOJI_ID">🌐</emoji>'
+    return '<emoji id="5269657987219232606">🌐</emoji>'
 
 def mask_number(phone_str: str) -> str:
     clean_num = re.sub(r"[^\d+]", "", str(phone_str))
