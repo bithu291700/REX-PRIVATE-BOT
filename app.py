@@ -79,16 +79,27 @@ WAIT_GROUP_USERNAME, WAIT_GROUP_SCREENSHOT = range(6, 8)
     ADMIN_BROADCAST,
 ) = range(8, 18)
 
-# Helper Functions
+# Helper Functions (Safe Premium Emoji Implementation with Fallback)
 def get_country_flag(country_code: str) -> str:
     code = country_code.lower()
-    if code == "hk":
-        # এখানে HK এর জন্য প্রিমিয়াম অ্যানিমেটেড ইমোজি ট্যাগ দিন (আপনার কাস্টম ইমোজি আইডি বসান)
-        return '<emoji id="5222159467151371659">🇭🇰</emoji>'
-    elif code == "cl":
-        # এখানে CL এর জন্য প্রিমিয়াম অ্যানিমেটেড ইমোজি ট্যাগ দিন (আপনার কাস্টম ইমোজি আইডি বসান)
-        return '<emoji id="5222350726340032308">🇨🇱</emoji>'
-    return '<emoji id="5269657987219232606">🌐</emoji>'
+    # আপনার ইচ্ছামমতো কাস্টম ইমোজি আইডি এখানে বসাতে পারেন
+    hk_emoji_id = "5222159467151371659"
+    cl_emoji_id = "5222350726340032308"
+    default_emoji_id = "5269657987219232606"
+
+    try:
+        if code == "hk":
+            return f'<emoji id="{hk_emoji_id}">🇭🇰</emoji>'
+        elif code == "cl":
+            return f'<emoji id="{cl_emoji_id}">🇨🇱</emoji>'
+        return f'<emoji id="{default_emoji_id}">🌐</emoji>'
+    except Exception:
+        # আইডি কাজ না করলে বা কোনো সমস্যা হলে সাধারণ ফলব্যাক ইমোজি রিটার্ন করবে যাতে বট না আটকে যায়
+        if code == "hk":
+            return "🇭🇰"
+        elif code == "cl":
+            return "🇨🇱"
+        return "🌐"
 
 def mask_number(phone_str: str) -> str:
     clean_num = re.sub(r"[^\d+]", "", str(phone_str))
@@ -110,8 +121,8 @@ def get_or_create_user(user_id: int, full_name: str = "User"):
             "full_name": full_name,
             "balance": 0.0,
             "otp_count": 0,
-            "selected_country": "hk",  # Default Hong Kong (hk)
-            "selected_service": "tg",  # Default Telegram (tg)
+            "selected_country": "hk",
+            "selected_service": "tg",
             "is_banned": False,
             "subscription_expiry": None,
             "is_group_verified": False
@@ -442,7 +453,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"🆔 **ID Num:** `{id_num}`\n"
                 f"🌍 **Country:** `{country.upper()}` {country_flag}\n"
                 f"💬 **Service:** `{service.upper()}`\n"
-                f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝘾𝙀 𝙆𝘼𝙏𝘽𝙀)*\n\n"
+                f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝙲𝙴 𝙆𝘼𝙏𝘽𝙀)*\n\n"
                 f"⏳ *𝙾𝚃𝙿 𝙿𝙾𝚆𝙴𝚁 𝙹𝙾𝙽𝙽𝙾 𝙾𝙿𝙴𝙺𝙺𝙷𝙰 𝙺𝙾𝚁𝚄𝙽...*",
                 parse_mode="HTML",
                 reply_markup=inline_kb
@@ -1015,7 +1026,7 @@ async def admin_rate_tg_cl_process(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text("❌ Invalid Rate Format!")
     return ConversationHandler.END
 
-# ADMIN BROADCAST HANDLERS (UPDATED TO PRESERVE PREMIUM EMOJI / ENTITIES)
+# ADMIN BROADCAST HANDLERS
 async def admin_broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
