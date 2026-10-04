@@ -651,7 +651,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             active_orders.pop(id_num, None)
             try:
                 await query.edit_message_text(
-                    f"{custom_emoji(1, '❌')} <b>𝙽𝚄𝙼𝙱𝙴𝚁 𝙲𝙰𝙽𝙲𝙴𝙻𝙴𝙳(𝙱𝙰𝙻𝙰𝙽𝙲𝙴 𝙺𝙰𝚃𝙰 𝙷𝙾𝚈𝙽𝙸).</b>",
+                    f"{custom_emoji(1, '❌')} <b>𝙽𝚄𝙼𝙱𝙴𝚁 𝙲𝙰𝙽𝙲𝙴𝙻𝙴𝙳 (𝙱𝙰𝙻𝙰𝙽𝙲𝙴 𝙺𝙰𝚃𝙰 𝙷𝙾𝚈𝙽𝙸).</b>",
                     parse_mode="HTML",
                     reply_markup=None
                 )
@@ -1101,7 +1101,7 @@ async def admin_add_bal_user(update: Update, context: ContextTypes.DEFAULT_TYPE)
         uid = int(update.message.text.strip())
         context.user_data["target_add_uid"] = uid
         cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-        await update.message.reply_text(
+        await query.message.reply_text(
             f"{custom_emoji(1, '💰')} <b>User <code>{uid}</code>-er jonno koto USDT balance add korben ta likhun:</b>", 
             parse_mode="HTML", 
             reply_markup=cancel_kb
