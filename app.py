@@ -24,7 +24,6 @@ from telegram.ext import (
     filters,
 )
 import requests
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # Logging Configuration
 logging.basicConfig(
@@ -48,7 +47,6 @@ db = client["vaksms_bot_db"]
 
 users_col = db["users"]
 settings_col = db["settings"]
-otp_logs_col = db["otp_logs"]  # [NEW] 24-Hour OTP Tracking Collection
 
 # Flask Web Server
 flask_app = Flask("")
@@ -66,7 +64,7 @@ active_orders = {}
 
 # Conversation States
 WAITING_AMOUNT, WAITING_TXID, WAITING_SCREENSHOT = range(3)
-SUB_PLAN, SUB_TXID, SUB_SCREENSHOT = range(3, 6)
+SUB_PLAN, SUB_METHOD, SUB_TXID, SUB_SCREENSHOT = range(3, 7)
 (
     ADMIN_BAN,
     ADMIN_UNBAN,
@@ -78,7 +76,7 @@ SUB_PLAN, SUB_TXID, SUB_SCREENSHOT = range(3, 6)
     ADMIN_RATE_TG_HK_SET,
     ADMIN_RATE_TG_CL_SET,
     ADMIN_BROADCAST,
-) = range(6, 16)
+) = range(7, 17)
 
 # Helper Functions
 def get_country_flag(country_code: str) -> str:
@@ -109,11 +107,12 @@ def get_or_create_user(user_id: int, full_name: str = "User"):
             "full_name": full_name,
             "balance": 0.0,
             "otp_count": 0,
-            "selected_country": "hk",  # Default Hong Kong (hk)
-            "selected_service": "tg",  # Default Telegram (tg)
+            "selected_country": "hk",
+            "selected_service": "tg",
             "is_banned": False,
             "subscription_expiry": None,
-            "sub_days": 0
+            "sub_days": 0,
+            "sub_method": "bkash"
         }
         users_col.insert_one(user_data)
         return user_data
@@ -166,52 +165,6 @@ def is_subscribed(user_id: int) -> bool:
         if datetime.now() < expiry:
             return True
     return False
-
-# [NEW] Helper Functions for 24-Hour OTP Calculation
-def generate_24h_otp_report() -> str:
-    now = datetime.now()
-    since_24h = now - timedelta(hours=24)
-    
-    pipeline = [
-        {"$match": {"timestamp": {"$gte": since_24h}}},
-        {"$group": {"_id": "$user_id", "count": {"$sum": 1}}}
-    ]
-    
-    results = list(otp_logs_col.aggregate(pipeline))
-    
-    if not results:
-        return "📊 **গত ২৪ ঘণ্টায় (১২:০০ - ১২:০০) কোনো OTP রিসিভ হয়নি।**"
-    
-    report = f"📊 **গত ২৪ ঘণ্টার OTP রিপোর্ট ({now.strftime('%d %b, %I:%M %p')}):**\n\n"
-    total_otp = 0
-    
-    for item in results:
-        uid = item["_id"]
-        cnt = item["count"]
-        user_info = get_user(uid)
-        user_name = user_info.get("full_name", "Unknown") if user_info else "Unknown"
-        safe_name = str(user_name).replace("*", "").replace("_", "").replace("`", "")
-        
-        report += f"👤 **{safe_name}** (`{uid}`): `{cnt}` টি OTP\n"
-        total_otp += cnt
-        
-    report += f"\n🔢 **সর্বমোট ২৪ ঘণ্টার OTP:** `{total_otp}` টি"
-    return report
-
-async def scheduled_12pm_auto_update(context: ContextTypes.DEFAULT_TYPE):
-    # Old logs cleanup (24 hours older)
-    cutoff = datetime.now() - timedelta(hours=24)
-    otp_logs_col.delete_many({"timestamp": {"$lt": cutoff}})
-    
-    report = generate_24h_otp_report()
-    try:
-        await context.bot.send_message(
-            chat_id=ADMIN_ID,
-            text=f"🔄 **[১২:০০ PM অটো আপডেট ও রিসেট নোটিফিকেশন]**\n\n{report}",
-            parse_mode="Markdown"
-        )
-    except Exception as e:
-        logging.error(f"Scheduled message failed: {e}")
 
 # Keyboards
 def get_main_keyboard(user_id):
@@ -288,20 +241,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not is_subscribed(user_id):
         sub_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💳 5 Days (50 Tk)", callback_data="buy_sub_5")],
-            [InlineKeyboardButton("💳 7 Days (70 Tk)", callback_data="buy_sub_7")]
+            [InlineKeyboardButton("💳 5 Days (50 Tk / 0.40 USDT)", callback_data="buy_sub_5")],
+            [InlineKeyboardButton("💳 7 Days (70 Tk / 0.56 USDT)", callback_data="buy_sub_7")]
         ])
         msg = (
             f"👋 **Hello {user.full_name}!**\n\n"
             f"❌ 𝚈𝙾𝚄 𝙳𝙾𝙽'𝚃 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚃𝙷𝙴 𝙱𝙾𝚃!\n"
             f"ʙᴏᴛ ʙᴇʙᴏʜᴀʀ ᴋᴏʀᴛᴇ ᴄʜᴀɪʟᴇ sᴜʙsᴄʀɪᴘᴛɪᴏɴ ɴɪᴛᴇ ʜᴏʙᴇ.\n\n"
-            f"📌 **𝗣𝗥𝗜𝗖𝗘 & 𝗩𝗔𝗟𝗜𝗗𝗜𝗧𝗬:**\n"
-            f"• `5 Days` = **50 Tk**\n"
-            f"• `7 Days` = **70 Tk**\n\n"
+            f"📌 **𝗣𝗥𝗜𝗖𝗘 & 𝗩𝗔𝗟𝗜𝗗𝗜𝗧𝗬 (Rate: 125 Tk/$) :**\n"
+            f"• `5 Days` = **50 Tk** (or `0.40 USDT`)\n"
+            f"• `7 Days` = **70 Tk** (or `0.56 USDT`)\n\n"
             f"ɴɪᴄʜᴇʀ ʙᴜᴛᴛᴏɴ ᴛʜᴇᴋᴇ ᴄʟɪᴄᴋ ᴋᴏʀᴇ sᴜʙsᴄ𝚁𝙸𝙿𝚃𝙸𝙾𝙽 ᴋɪɴᴜɴ:"
         )
         await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
-        await update.message.reply_text("👇 **𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽:**", reply_markup=sub_kb)
+        await update.message.reply_text("👇 **𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾Ն:**", reply_markup=sub_kb)
         return
 
     exp_time = u_data.get("subscription_expiry")
@@ -319,7 +272,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• Service: `{curr_service}`\n"
         f"• 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${u_data.get('balance', 0.0):.4f} USDT`\n"
         f"• 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚅𝙰𝙻𝙸𝙳 𝚃𝙸𝙻𝙻: `{exp_str}`\n\n"
-        f"𝙺𝙰𝙹 𝙺𝙾𝚁𝚃𝙴 𝙽𝙸𝙲𝙷𝙴 𝙳𝙴𝙰 𝙼𝙴𝙽𝚄 𝚄𝚂𝙴 𝙺𝙾𝚁𝚄𝙽:"
+        f"𝙺𝙰𝙹 𝙺𝙾𝚁𝚃𝙴 𝙽𝙸𝙲𝙷𝙴 𝙳𝙴𝙰 𝙼𝙴𝙽𝚄 𝚄𝚂𝙴 𝙺𝙾𝚁𝙴𝙽:"
     )
     await update.message.reply_text(welcome_msg, parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
 
@@ -339,8 +292,8 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not is_subscribed(user_id):
         sub_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💳 5 Days (50 Tk)", callback_data="buy_sub_5")],
-            [InlineKeyboardButton("💳 7 Days (70 Tk)", callback_data="buy_sub_7")]
+            [InlineKeyboardButton("💳 5 Days (50 Tk / 0.40 USDT)", callback_data="buy_sub_5")],
+            [InlineKeyboardButton("💳 7 Days (70 Tk / 0.56 USDT)", callback_data="buy_sub_7")]
         ])
         await update.message.reply_text("❌ 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝙴𝚇𝙿𝙸𝚁𝙴𝚂! 𝙱𝚄𝚈 𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽.", reply_markup=ReplyKeyboardRemove())
         await update.message.reply_text("👇 **𝙱𝚄𝚈 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽:**", reply_markup=sub_kb)
@@ -468,7 +421,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"🆔 **ID Num:** `{id_num}`\n"
                 f"🌍 **Country:** `{country.upper()}` {country_flag}\n"
                 f"💬 **Service:** `{service.upper()}`\n"
-                f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝘾𝙀 𝙆𝘼𝙏𝘽𝙀)*\n\n"
+                f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝙲𝙀 𝙆𝘼𝙏𝘽𝙀)*\n\n"
                 f"⏳ *𝙾𝚃𝙿 𝙿𝙾𝚆𝙴𝚁 𝙹𝙾𝙽𝙽𝙾 𝙾𝙿𝙴𝙺𝙺𝙷𝙰 𝙺𝙾𝚁𝚄𝙽...*",
                 parse_mode="HTML",
                 reply_markup=inline_kb
@@ -501,7 +454,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_str = "🟢 ON (Active)" if is_bot_active() else "🔴 OFF (Maintenance)"
     admin_kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("👥 𝗩𝗜𝗘𝗪 𝗔𝗟𝗟 𝗨𝗦𝗘𝗥", callback_data="admin_view_users"), InlineKeyboardButton("📊 24H OTP REPORT", callback_data="admin_24h_otp")],
+        [InlineKeyboardButton("👥 𝗩𝗜𝗘𝗪 𝗔𝗟𝗟 𝗨𝗦𝗘𝗥", callback_data="admin_view_users")],
         [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
         [InlineKeyboardButton("💵 SET HK WA PRICE", callback_data="admin_rate_wa_hk_start"), InlineKeyboardButton("💵 SET CL WA PRICE", callback_data="admin_rate_wa_cl_start")],
         [InlineKeyboardButton("💵 SET HK TG PRICE", callback_data="admin_rate_tg_hk_start"), InlineKeyboardButton("💵 SET CL TG PRICE", callback_data="admin_rate_tg_cl_start")],
@@ -520,11 +473,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
     user_id = query.from_user.id
 
-    if data == "admin_24h_otp" and user_id == ADMIN_ID:
-        report = generate_24h_otp_report()
-        await query.message.reply_text(report, parse_mode="Markdown")
-
-    elif data == "admin_view_users" and user_id == ADMIN_ID:
+    if data == "admin_view_users" and user_id == ADMIN_ID:
         try:
             now = datetime.now()
             subscribed_users = list(users_col.find({
@@ -556,7 +505,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         status_str = "🟢 ON (Active)" if new_status else "🔴 OFF (Maintenance)"
         admin_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("👥 𝗩𝗜𝗘𝗪 𝗔𝗟𝗟 𝗨𝗦𝗘𝗥", callback_data="admin_view_users"), InlineKeyboardButton("📊 24H OTP REPORT", callback_data="admin_24h_otp")],
+            [InlineKeyboardButton("👥 𝗩𝗜𝗘𝗪 𝗔𝗟𝗟 𝗨𝗦𝗘𝗥", callback_data="admin_view_users")],
             [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
             [InlineKeyboardButton("💵 SET HK WA PRICE", callback_data="admin_rate_wa_hk_start"), InlineKeyboardButton("💵 SET CL WA PRICE", callback_data="admin_rate_wa_cl_start")],
             [InlineKeyboardButton("💵 SET HK TG PRICE", callback_data="admin_rate_tg_hk_start"), InlineKeyboardButton("💵 SET CL TG PRICE", callback_data="admin_rate_tg_cl_start")],
@@ -639,18 +588,11 @@ async def process_otp_success(context, id_num: str, otp: str):
     country_code = order_info.get("country", "hk")
     country_flag = get_country_flag(country_code)
 
-    # 1. Update total lifetime OTP & balance
     users_col.update_one(
         {"user_id": uid},
         {"$inc": {"balance": -cost, "otp_count": 1}}
     )
     
-    # 2. [NEW] Log single OTP event with Timestamp for 24-Hour tracking
-    otp_logs_col.insert_one({
-        "user_id": uid,
-        "timestamp": datetime.now()
-    })
-
     updated_user = get_user(uid)
     rem_bal = updated_user.get("balance", 0.0) if updated_user else 0.0
     set_number_status(id_num, "end")
@@ -710,12 +652,13 @@ async def sub_start_5(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     users_col.update_one({"user_id": user_id}, {"$set": {"sub_days": 5}})
     
-    bkash_kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🌸 𝙱𝙺𝙰𝚂𝙷", callback_data="pay_bkash_sub")],
+    pay_methods_kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🌸 𝙱𝙺𝙰𝚂𝙷 (50 Tk)", callback_data="pay_method_bkash")],
+        [InlineKeyboardButton("💛 Binance Pay (0.40 USDT)", callback_data="pay_method_binance")],
         [InlineKeyboardButton("❌ 𝙲𝙰𝙽𝙲𝙴𝙻", callback_data="cancel_flow_cb")]
     ])
-    await query.message.reply_text("💳 **𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝙼𝙴𝚃𝙷𝙾𝙳 𝚂𝙴𝙻𝙴𝙲𝚃 𝙺𝙾𝚁𝚄𝙽 (Plan: 5 Days - 50 Tk):**", reply_markup=bkash_kb)
-    return SUB_PLAN
+    await query.message.reply_text("💳 **𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝙼𝙴𝚃𝙷𝙾𝙳 𝚂𝙴𝙻𝙴𝙲𝚃 𝙺𝙾𝚁𝚄𝙽 (Plan: 5 Days - 50 Tk / 0.40 USDT):**", reply_markup=pay_methods_kb)
+    return SUB_METHOD
 
 async def sub_start_7(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -723,37 +666,56 @@ async def sub_start_7(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = query.from_user.id
     users_col.update_one({"user_id": user_id}, {"$set": {"sub_days": 7}})
     
-    bkash_kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("🌸 𝙱𝙺𝙰𝚂𝙷", callback_data="pay_bkash_sub")],
+    pay_methods_kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🌸 𝙱𝙺𝙰𝚂𝙷 (70 Tk)", callback_data="pay_method_bkash")],
+        [InlineKeyboardButton("💛 Binance Pay (0.56 USDT)", callback_data="pay_method_binance")],
         [InlineKeyboardButton("❌ 𝙲𝙰𝙽𝙲𝙴𝙻", callback_data="cancel_flow_cb")]
     ])
-    await query.message.reply_text("💳 **𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝙼𝙴𝚃𝙷𝙾𝙳 𝚂𝙴𝙻𝙴𝙲𝚃 𝙺𝙾𝚁𝚄𝙽 (Plan: 7 Days - 70 Tk):**", reply_markup=bkash_kb)
-    return SUB_PLAN
+    await query.message.reply_text("💳 **𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝙼𝙴𝚃𝙷𝙾𝙳 𝚂𝙴𝙻𝙴𝙲𝚃 𝙺𝙾𝚁𝚄𝙽 (Plan: 7 Days - 70 Tk / 0.56 USDT):**", reply_markup=pay_methods_kb)
+    return SUB_METHOD
 
-async def sub_bkash_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def sub_method_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     user_id = query.from_user.id
+    data = query.data
+    
     user_doc = users_col.find_one({"user_id": user_id})
     days = user_doc.get("sub_days", 5) if user_doc else 5
-    price = 50 if days == 5 else 70
     
-    msg = (
-        f"💰 **𝙿𝙻𝙰𝙽:** `{days} Days`\n"
-        f"💰 **𝙰𝙼𝙾𝚄𝙽𝚃:** `{price}` Tk\n\n"
-        f"👇 **𝚂𝙴𝙽𝙳 𝙱𝙺𝙰𝚂𝙷 𝙿𝙴𝚁𝚂𝙾𝙽𝙰𝙻 𝙽𝚄𝙼𝙱𝙴𝚁:**\n"
-        f"📱 𝙱𝙺𝙰𝚂𝙷 𝙽𝚄𝙼𝙱𝙴𝚁: `{ADMIN_BKASH}`\n\n"
-        f"𝚃𝙰𝙺𝙰 𝙳𝙴𝙰 𝚂𝙴𝚂𝙴 𝚃𝚁𝚇 𝙸𝙳 **TrxID**-𝚃𝙸 𝙻𝙸𝙺𝙷𝙴 𝙿𝙰𝚃𝙷𝙰𝙽:"
-    )
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-    await query.message.reply_text(msg, parse_mode="Markdown", reply_markup=cancel_kb)
-    return SUB_TXID
+    
+    if data == "pay_method_bkash":
+        users_col.update_one({"user_id": user_id}, {"$set": {"sub_method": "bkash"}})
+        price = 50 if days == 5 else 70
+        msg = (
+            f"💰 **𝙿𝙻𝙰𝙽:** `{days} Days`\n"
+            f"💰 **𝙰𝙼𝙾𝚄𝙽𝚃:** `{price} Tk`\n\n"
+            f"👇 **𝚂𝙴𝙽𝙳 𝙱𝙺𝙰𝚂𝙷 𝙿𝙴𝚁𝚂𝙾𝙽𝙰𝙻 𝙽𝚄𝙼𝙱𝙴𝚁:**\n"
+            f"📱 𝙱𝙺𝙰𝚂𝙷 𝙽𝚄𝙼𝙱𝙴𝚁: `{ADMIN_BKASH}`\n\n"
+            f"𝚃𝙰𝙺𝙰 𝙳𝙴𝙰 𝚂𝙴𝚂𝙴 **TrxID**-𝚃𝙸 𝙻𝙸𝙺𝙷𝙴 𝙿𝙰𝚃𝙷𝙰𝙽:"
+        )
+        await query.message.reply_text(msg, parse_mode="Markdown", reply_markup=cancel_kb)
+        return SUB_TXID
+        
+    elif data == "pay_method_binance":
+        users_col.update_one({"user_id": user_id}, {"$set": {"sub_method": "binance"}})
+        usdt_amt = 0.40 if days == 5 else 0.56
+        msg = (
+            f"💰 **𝙿𝙻𝙰𝙽:** `{days} Days`\n"
+            f"💰 **𝙰𝙼𝙾𝚄𝙽𝚃:** `{usdt_amt}` USDT (Rate: 125 Tk/$)\n\n"
+            f"👇 **𝚂𝙴𝙽𝙳 𝙱𝙸𝙽𝙰𝙽𝙲𝙴 𝙿𝙰𝚈 𝙸𝙳:**\n"
+            f"🆔 𝙱𝙸𝙽𝙰𝙽𝙲𝙴 𝙿𝙰𝚈 𝙸𝙳: `{BINANCE_ID}`\n\n"
+            f"ডলার সেন্ড করার পর আপনার **Order ID / TxID**-টি লিখে পাঠান:"
+        )
+        await query.message.reply_text(msg, parse_mode="Markdown", reply_markup=cancel_kb)
+        return SUB_TXID
 
 async def sub_txid_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     txid = update.message.text.strip()
     context.user_data["sub_txid"] = txid
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-    await update.message.reply_text("📸 **𝙱𝙺𝙰𝚂𝙷 𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝚂𝙲𝚁𝙴𝙴𝙽𝚂𝙷𝙾𝚃(Photo) 𝙳𝙸𝙽:**", reply_markup=cancel_kb)
+    await update.message.reply_text("📸 **පAYMENT-এর 𝚂𝙲𝚁𝙴𝙴𝙽𝚂𝙷𝙾𝚃 (Photo) 𝙳𝙸𝙽:**", reply_markup=cancel_kb)
     return SUB_SCREENSHOT
 
 async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -762,7 +724,12 @@ async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_
     txid = context.user_data.get("sub_txid")
     user_doc = users_col.find_one({"user_id": user.id})
     days = user_doc.get("sub_days", 5) if user_doc else 5
-    price = 50 if days == 5 else 70
+    method = user_doc.get("sub_method", "bkash").upper()
+    
+    if method == "BKASH":
+        price_str = f"{50 if days == 5 else 70} Tk"
+    else:
+        price_str = f"{0.40 if days == 5 else 0.56} USDT"
 
     admin_kb = InlineKeyboardMarkup([
         [
@@ -774,9 +741,10 @@ async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_
     caption = (
         f"🔔 **𝙽𝙴𝚆 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚁𝙴𝙹𝚄𝙴𝚂𝚃!**\n\n"
         f"👤 **𝚄𝚂𝙴𝚁:** {user.full_name} (`{user.id}`)\n"
+        f"💳 **𝙼𝙴𝚃𝙷𝙾𝙳:** `{method}`\n"
         f"📅 **𝙿𝙻𝙰𝙽:** `{days} Days`\n"
-        f"💰 **𝙰𝙼𝙾𝚄𝙽𝚃:** `{price} Tk`\n"
-        f"🧾 **𝚃𝚁𝚇𝙸𝙳:** `{txid}`"
+        f"💰 **𝙰𝙼𝙾𝚄𝙽𝚃:** `{price_str}`\n"
+        f"🧾 **𝚃𝚁𝚇𝙸𝙳 / 𝙾𝚁𝙳𝙴𝚁 𝙸𝙳:** `{txid}`"
     )
 
     await context.bot.send_photo(chat_id=ADMIN_ID, photo=photo.file_id, caption=caption, parse_mode="Markdown", reply_markup=admin_kb)
@@ -948,7 +916,6 @@ async def admin_zero_bal_process(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text("❌ Invalid User ID! Sothik shongkha likhun.")
     return ConversationHandler.END
 
-# ADMIN RATE SETTERS FOR HK & CHILE
 async def admin_rate_wa_hk_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -1009,7 +976,6 @@ async def admin_rate_tg_cl_process(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text("❌ Invalid Rate Format!")
     return ConversationHandler.END
 
-# ADMIN BROADCAST HANDLERS
 async def admin_broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -1064,22 +1030,14 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
 async def run_bot():
     app = Application.builder().token(BOT_TOKEN).build()
 
-    # [NEW] Job Queue/Scheduler Setup for 12:00 PM Auto Update
-    job_queue = app.job_queue
-    # Runs every day at 12:00:00 PM
-    job_queue.run_daily(
-        scheduled_12pm_auto_update,
-        time=datetime.strptime("12:00:00", "%H:%M:%S").time()
-    )
-
     sub_conv = ConversationHandler(
         entry_points=[
             CallbackQueryHandler(sub_start_5, pattern="^buy_sub_5$"),
             CallbackQueryHandler(sub_start_7, pattern="^buy_sub_7$")
         ],
         states={
-            SUB_PLAN: [
-                CallbackQueryHandler(sub_bkash_selected, pattern="^pay_bkash_sub$")
+            SUB_METHOD: [
+                CallbackQueryHandler(sub_method_selected, pattern="^pay_method_(bkash|binance)$")
             ],
             SUB_TXID: [MessageHandler(filters.TEXT & ~filters.COMMAND, sub_txid_received)],
             SUB_SCREENSHOT: [MessageHandler(filters.PHOTO, sub_screenshot_received)]
