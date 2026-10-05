@@ -24,6 +24,7 @@ from telegram.ext import (
     filters,
 )
 import requests
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 # Logging Configuration
 logging.basicConfig(
@@ -47,6 +48,7 @@ db = client["vaksms_bot_db"]
 
 users_col = db["users"]
 settings_col = db["settings"]
+otp_logs_col = db["otp_logs"]  # [NEW] 24-Hour OTP Tracking Collection
 
 # Flask Web Server
 flask_app = Flask("")
@@ -165,6 +167,52 @@ def is_subscribed(user_id: int) -> bool:
             return True
     return False
 
+# [NEW] Helper Functions for 24-Hour OTP Calculation
+def generate_24h_otp_report() -> str:
+    now = datetime.now()
+    since_24h = now - timedelta(hours=24)
+    
+    pipeline = [
+        {"$match": {"timestamp": {"$gte": since_24h}}},
+        {"$group": {"_id": "$user_id", "count": {"$sum": 1}}}
+    ]
+    
+    results = list(otp_logs_col.aggregate(pipeline))
+    
+    if not results:
+        return "📊 **গত ২৪ ঘণ্টায় (১২:০০ - ১২:০০) কোনো OTP রিসিভ হয়নি।**"
+    
+    report = f"📊 **গত ২৪ ঘণ্টার OTP রিপোর্ট ({now.strftime('%d %b, %I:%M %p')}):**\n\n"
+    total_otp = 0
+    
+    for item in results:
+        uid = item["_id"]
+        cnt = item["count"]
+        user_info = get_user(uid)
+        user_name = user_info.get("full_name", "Unknown") if user_info else "Unknown"
+        safe_name = str(user_name).replace("*", "").replace("_", "").replace("`", "")
+        
+        report += f"👤 **{safe_name}** (`{uid}`): `{cnt}` টি OTP\n"
+        total_otp += cnt
+        
+    report += f"\n🔢 **সর্বমোট ২৪ ঘণ্টার OTP:** `{total_otp}` টি"
+    return report
+
+async def scheduled_12pm_auto_update(context: ContextTypes.DEFAULT_TYPE):
+    # Old logs cleanup (24 hours older)
+    cutoff = datetime.now() - timedelta(hours=24)
+    otp_logs_col.delete_many({"timestamp": {"$lt": cutoff}})
+    
+    report = generate_24h_otp_report()
+    try:
+        await context.bot.send_message(
+            chat_id=ADMIN_ID,
+            text=f"🔄 **[১২:০০ PM অটো আপডেট ও রিসেট নোটিফিকেশন]**\n\n{report}",
+            parse_mode="Markdown"
+        )
+    except Exception as e:
+        logging.error(f"Scheduled message failed: {e}")
+
 # Keyboards
 def get_main_keyboard(user_id):
     keyboard = [
@@ -271,7 +319,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"• Service: `{curr_service}`\n"
         f"• 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${u_data.get('balance', 0.0):.4f} USDT`\n"
         f"• 𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚅𝙰𝙻𝙸𝙳 𝚃𝙸𝙻𝙻: `{exp_str}`\n\n"
-        f"𝙺𝙰𝙹 𝙺𝙾𝚁𝚃𝙴 𝙽𝙸𝙲𝙷𝙴 𝙳𝙴𝙰 𝙼𝙴𝙽𝚄 𝚄𝚂𝙴 𝙺𝙾𝚁𝙴𝙽:"
+        f"𝙺𝙰𝙹 𝙺𝙾𝚁𝚃𝙴 𝙽𝙸𝙲𝙷𝙴 𝙳𝙴𝙰 𝙼𝙴𝙽𝚄 𝚄𝚂𝙴 𝙺𝙾𝚁𝚄𝙽:"
     )
     await update.message.reply_text(welcome_msg, parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
 
@@ -420,7 +468,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"🆔 **ID Num:** `{id_num}`\n"
                 f"🌍 **Country:** `{country.upper()}` {country_flag}\n"
                 f"💬 **Service:** `{service.upper()}`\n"
-                f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝙲𝙀 𝙆𝘼𝙏𝘽𝙀)*\n\n"
+                f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝘾𝙀 𝙆𝘼𝙏𝘽𝙀)*\n\n"
                 f"⏳ *𝙾𝚃𝙿 𝙿𝙾𝚆𝙴𝚁 𝙹𝙾𝙽𝙽𝙾 𝙾𝙿𝙴𝙺𝙺𝙷𝙰 𝙺𝙾𝚁𝚄𝙽...*",
                 parse_mode="HTML",
                 reply_markup=inline_kb
@@ -453,7 +501,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def send_admin_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status_str = "🟢 ON (Active)" if is_bot_active() else "🔴 OFF (Maintenance)"
     admin_kb = InlineKeyboardMarkup([
-        [InlineKeyboardButton("👥 𝗩𝗜𝗘𝗪 𝗔𝗟𝗟 𝗨𝗦𝗘𝗥", callback_data="admin_view_users")],
+        [InlineKeyboardButton("👥 𝗩𝗜𝗘𝗪 𝗔𝗟𝗟 𝗨𝗦𝗘𝗥", callback_data="admin_view_users"), InlineKeyboardButton("📊 24H OTP REPORT", callback_data="admin_24h_otp")],
         [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
         [InlineKeyboardButton("💵 SET HK WA PRICE", callback_data="admin_rate_wa_hk_start"), InlineKeyboardButton("💵 SET CL WA PRICE", callback_data="admin_rate_wa_cl_start")],
         [InlineKeyboardButton("💵 SET HK TG PRICE", callback_data="admin_rate_tg_hk_start"), InlineKeyboardButton("💵 SET CL TG PRICE", callback_data="admin_rate_tg_cl_start")],
@@ -472,7 +520,11 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
     user_id = query.from_user.id
 
-    if data == "admin_view_users" and user_id == ADMIN_ID:
+    if data == "admin_24h_otp" and user_id == ADMIN_ID:
+        report = generate_24h_otp_report()
+        await query.message.reply_text(report, parse_mode="Markdown")
+
+    elif data == "admin_view_users" and user_id == ADMIN_ID:
         try:
             now = datetime.now()
             subscribed_users = list(users_col.find({
@@ -504,7 +556,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         status_str = "🟢 ON (Active)" if new_status else "🔴 OFF (Maintenance)"
         admin_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("👥 𝗩𝗜𝗘𝗪 𝗔𝗟𝗟 𝗨𝗦𝗘𝗥", callback_data="admin_view_users")],
+            [InlineKeyboardButton("👥 𝗩𝗜𝗘𝗪 𝗔𝗟𝗟 𝗨𝗦𝗘𝗥", callback_data="admin_view_users"), InlineKeyboardButton("📊 24H OTP REPORT", callback_data="admin_24h_otp")],
             [InlineKeyboardButton("🚫 𝗕𝗔𝗡 𝗨𝗦𝗘𝗥", callback_data="admin_ban_start"), InlineKeyboardButton("✅ Unban User", callback_data="admin_unban_start")],
             [InlineKeyboardButton("💵 SET HK WA PRICE", callback_data="admin_rate_wa_hk_start"), InlineKeyboardButton("💵 SET CL WA PRICE", callback_data="admin_rate_wa_cl_start")],
             [InlineKeyboardButton("💵 SET HK TG PRICE", callback_data="admin_rate_tg_hk_start"), InlineKeyboardButton("💵 SET CL TG PRICE", callback_data="admin_rate_tg_cl_start")],
@@ -587,11 +639,18 @@ async def process_otp_success(context, id_num: str, otp: str):
     country_code = order_info.get("country", "hk")
     country_flag = get_country_flag(country_code)
 
+    # 1. Update total lifetime OTP & balance
     users_col.update_one(
         {"user_id": uid},
         {"$inc": {"balance": -cost, "otp_count": 1}}
     )
     
+    # 2. [NEW] Log single OTP event with Timestamp for 24-Hour tracking
+    otp_logs_col.insert_one({
+        "user_id": uid,
+        "timestamp": datetime.now()
+    })
+
     updated_user = get_user(uid)
     rem_bal = updated_user.get("balance", 0.0) if updated_user else 0.0
     set_number_status(id_num, "end")
@@ -694,7 +753,7 @@ async def sub_txid_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     txid = update.message.text.strip()
     context.user_data["sub_txid"] = txid
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_flow_cb")]])
-    await update.message.reply_text("📸 **𝙱2𝙰𝚂𝙷 𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝚂𝙲𝚁𝙴𝙴𝙽𝚂𝙷𝙾𝚃(Photo) 𝙳𝙸𝙽:**" if False else "📸 **𝙱𝙺𝙰𝚂𝙷 𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝚂𝙲𝚁𝙴𝙴𝙽𝚂𝙷𝙾𝚃(Photo) 𝙳𝙸𝙽:**", reply_markup=cancel_kb)
+    await update.message.reply_text("📸 **𝙱𝙺𝙰𝚂𝙷 𝙿𝙰𝚈𝙼𝙴𝙽𝚃 𝚂𝙲𝚁𝙴𝙴𝙽𝚂𝙷𝙾𝚃(Photo) 𝙳𝙸𝙽:**", reply_markup=cancel_kb)
     return SUB_SCREENSHOT
 
 async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -950,7 +1009,7 @@ async def admin_rate_tg_cl_process(update: Update, context: ContextTypes.DEFAULT
         await update.message.reply_text("❌ Invalid Rate Format!")
     return ConversationHandler.END
 
-# ADMIN BROADCAST HANDLERS (UPDATED TO PRESERVE PREMIUM EMOJI / ENTITIES)
+# ADMIN BROADCAST HANDLERS
 async def admin_broadcast_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -1004,6 +1063,14 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
 # Async Main Runner
 async def run_bot():
     app = Application.builder().token(BOT_TOKEN).build()
+
+    # [NEW] Job Queue/Scheduler Setup for 12:00 PM Auto Update
+    job_queue = app.job_queue
+    # Runs every day at 12:00:00 PM
+    job_queue.run_daily(
+        scheduled_12pm_auto_update,
+        time=datetime.strptime("12:00:00", "%H:%M:%S").time()
+    )
 
     sub_conv = ConversationHandler(
         entry_points=[
