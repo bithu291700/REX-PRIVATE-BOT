@@ -42,7 +42,7 @@ MONGODB_URI = os.getenv("MONGODB_URI")
 # MongoDB Setup
 if not MONGODB_URI:
     logging.error("❌ MONGODB_URI Environment Variable missing!")
-client = MongoClient(MONGODB_URI)
+client = MongoClient(MONGODB_URI, serverSelectionTimeoutMS=5000)
 db = client["vaksms_bot_db"]
 
 users_col = db["users"]
@@ -421,7 +421,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 f"🆔 **ID Num:** `{id_num}`\n"
                 f"🌍 **Country:** `{country.upper()}` {country_flag}\n"
                 f"💬 **Service:** `{service.upper()}`\n"
-                f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝙲𝙀 𝙆𝘼𝙏𝘽𝙀)*\n\n"
+                f"💵 **Rate:** `${bot_rate}` USDT *(𝙊𝙏𝙋 𝘼𝙎𝙇𝙀𝙄 𝘽𝘼𝙇𝘼𝙉𝘾𝙀 𝙆𝘼𝙏𝘽𝙀)*\n\n"
                 f"⏳ *𝙾𝚃𝙿 𝙿𝙾𝚆𝙴𝚁 𝙹𝙾𝙽𝙽𝙾 𝙾𝙿𝙴𝙺𝙺𝙷𝙰 𝙺𝙾𝚁𝚄𝙽...*",
                 parse_mode="HTML",
                 reply_markup=inline_kb
@@ -906,7 +906,7 @@ async def admin_zero_bal_process(update: Update, context: ContextTypes.DEFAULT_T
         if result.matched_count > 0:
             await update.message.reply_text(f"✅ Successfully User `{uid}`-er balance **0 USDT** kora hoyeche.", parse_mode="Markdown")
             try:
-                await context.bot.send_message(chat_id=uid, text="⚠️ **Admin apnar account-er balance 0 kore diyeche.**")
+                await context.bot.send_message(chat_id=uid, text="⚠️️ **Admin apnar account-er balance 0 kore diyeche.**")
             except Exception:
                 pass
         else:
