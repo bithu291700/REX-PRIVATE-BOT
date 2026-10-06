@@ -237,7 +237,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         bot_bal = u_data.get("balance", 0.0)
         msg = f"💰 **𝙼𝚈 𝙱𝙰𝙻𝙰𝙽𝙲𝙴:** `${bot_bal:.4f}` USDT"
         
-        # কেবল অ্যাডমিন হলে উপলব্ধ কতটি নম্বর আছে তা দেখাবে
         if is_admin(user_id):
             site_bal = get_vak_balance()
             available_numbers = int(site_bal // 0.079)
@@ -277,7 +276,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "poll_task": None
         }
 
-        # Auto cancel timer after 5 minutes (300s)
         async def auto_cancel():
             await asyncio.sleep(300)
             if user_id in active_orders and active_orders[user_id]["status"] == "WAITING_OTP":
@@ -288,7 +286,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 except Exception:
                     pass
 
-        # OTP Polling Task
         async def poll_otp():
             while user_id in active_orders and active_orders[user_id]["status"] == "WAITING_OTP":
                 await asyncio.sleep(1)
@@ -375,7 +372,10 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(p_msg, parse_mode="Markdown")
 
     elif text == "💵 𝙳𝙸𝙿𝙾𝚂𝙸𝚃":
-        await update.message.reply_text("✨ 𝙿𝙻𝙴𝙰𝚂𝙴 𝚄𝚂𝙴 `/deposit` 𝙲𝙾𝙼𝙼𝙰𝙽𝙳 𝚃𝙾 𝚂𝚃𝙰𝚁𝚃 𝙳𝙴𝙿𝙾𝚂𝙸𝚃!")
+        dep_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🟡 BINANCE PAY", callback_data="pay_binance")]
+        ])
+        await update.message.reply_text("💳 **SELECT DEPOSIT METHOD:**", parse_mode="Markdown", reply_markup=dep_kb)
 
     elif text == "⚙️ 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻" and is_admin(user_id):
         curr_status = is_bot_active()
@@ -462,11 +462,20 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
 
 # Deposit Conversation Handlers
 async def deposit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    u_data = get_or_create_user(user_id, update.effective_user.full_name)
+    query = update.callback_query
+    if query:
+        await query.answer()
+        user_id = query.from_user.id
+        u_data = get_or_create_user(user_id, query.from_user.full_name)
+    else:
+        user_id = update.effective_user.id
+        u_data = get_or_create_user(user_id, update.effective_user.full_name)
 
     if u_data.get("is_banned", False):
-        await update.message.reply_text("❌ 𝙱𝙰𝙽 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽 𝙲𝙾𝙽𝚃𝙰𝙲𝚃 𝙰𝙳𝙼𝙸𝙽.")
+        if query:
+            await query.message.reply_text("❌ 𝙱𝙰𝙽 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽 𝙲𝙾𝙽𝚃𝙰𝙲𝚃 𝙰𝙳𝙼𝙸𝙽.")
+        else:
+            await update.message.reply_text("❌ 𝙱𝙰𝙽 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽 𝙲𝙾𝙽𝚃𝙰𝙲𝚃 𝙰𝙳𝙼𝙸𝙽.")
         return ConversationHandler.END
 
     dep_msg = (
@@ -474,7 +483,11 @@ async def deposit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"🆔 **𝙱𝙸𝙽𝙰𝙽𝙲𝙴 𝙿𝙰𝚈 ID:** `{BINANCE_ID}`\n\n"
         f"✍️ **𝚂𝙴𝙽𝙳 𝚃𝙷𝙴 𝙰𝙼𝙾𝚄𝙽𝚃 (𝚄𝚂𝙳𝚃) 𝚈𝙾𝚄 𝙷𝙰𝚅𝙴 𝚂𝙴𝙽𝚃:**"
     )
-    await update.message.reply_text(dep_msg, parse_mode="Markdown")
+    if query:
+        await query.message.reply_text(dep_msg, parse_mode="Markdown")
+    else:
+        await update.message.reply_text(dep_msg, parse_mode="Markdown")
+        
     return WAITING_AMOUNT
 
 async def deposit_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -643,7 +656,10 @@ def main():
 
     # Deposit Conversation Handler
     deposit_handler = ConversationHandler(
-        entry_points=[CommandHandler("deposit", deposit_start)],
+        entry_points=[
+            CommandHandler("deposit", deposit_start),
+            CallbackQueryHandler(deposit_start, pattern="^pay_binance$")
+        ],
         states={
             WAITING_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_amount)],
             WAITING_TXID: [MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_txid)],
