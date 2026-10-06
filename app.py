@@ -32,6 +32,9 @@ logging.basicConfig(
 
 # Environment Variables & Config
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+if not BOT_TOKEN:
+    logging.critical("❌ BOT_TOKEN Environment Variable is MISSING!")
+
 VAK_SMS_API_KEY = os.getenv("VAK_SMS_API_KEY", "087d6bfb54884a7bbfd963a232add065")
 
 # Multiple Admins Support
@@ -46,7 +49,7 @@ MONGODB_URI = os.getenv("MONGODB_URI")
 # MongoDB Setup
 if not MONGODB_URI:
     logging.error("❌ MONGODB_URI Environment Variable missing!")
-client = MongoClient(MONGODB_URI)
+client = MongoClient(MONGODB_URI, tlsAllowInvalidCertificates=True)
 db = client["vaksms_child_bot_db"]
 
 users_col = db["users"]
@@ -819,7 +822,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         adm_kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("🚫 BAN USER", callback_data="admin_ban_start"), InlineKeyboardButton("✅ UNBAN USER", callback_data="admin_unban_start")],
             [InlineKeyboardButton("➕ ADD BALANCE", callback_data="admin_add_bal_start"), InlineKeyboardButton("🧹 ZERO BALANCE", callback_data="admin_zero_bal_start")],
-            [InlineKeyboardButton("🏷️ SET RATE", callback_data="admin_rate_wa_cl_start"), InlineKeyboardButton("📢 BROADCAST", callback_data="admin_broadcast_start")],
+            [InlineKeyboardButton("🏷️️ SET RATE", callback_data="admin_rate_wa_cl_start"), InlineKeyboardButton("📢 BROADCAST", callback_data="admin_broadcast_start")],
             [InlineKeyboardButton("🚦 TOGGLE BOT ON/OFF", callback_data="admin_toggle_bot")]
         ])
         await update.message.reply_text(adm_msg, parse_mode="Markdown", reply_markup=adm_kb)
@@ -972,7 +975,14 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_messages))
 
     logging.info("🤖 Starting Bot Polling...")
-    app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
+    
+    # Render Fix: drop_pending_updates, stop_signals, and close_loop prevents telegram.error.Conflict
+    app.run_polling(
+        drop_pending_updates=True,
+        stop_signals=None,
+        close_loop=False,
+        allowed_updates=Update.ALL_TYPES
+    )
 
 if __name__ == "__main__":
     main()
