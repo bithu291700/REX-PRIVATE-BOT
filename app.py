@@ -267,11 +267,25 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         phone_num = str(res["tel"])
         id_num = str(res["idNum"])
 
+        inline_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🚫 𝙲𝙰𝙽𝙲𝙴𝙻 𝙽𝚄𝙼𝙱𝙴𝚁", callback_data="cancel_number")]
+        ])
+
+        buying_msg = (
+            f"✅ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙿𝚄𝚁𝙲𝙷𝙰𝚂𝙴𝙳!**\n\n"
+            f"📱 **𝙽𝚄𝙼𝙱𝙴𝚁:** `{phone_num}`\n"
+            f"💰 **𝙿𝚁𝙸𝙲𝙴:** `${rate:.2f}` USDT\n\n"
+            f"⏳ **𝚆𝙰𝙸𝚃𝙸𝙽𝙶 𝙵𝙾𝚁 𝙾𝚃𝙿 (𝙰𝚄𝚃𝙾 𝙿𝙾𝙻𝙻𝙸𝙽𝙶)...**"
+        )
+        # Message ID ট্র্যাক করার জন্য পাঠানো মেসেজের রেফারেন্স রাখা হলো
+        sent_msg = await update.message.reply_text(buying_msg, parse_mode="Markdown", reply_markup=inline_kb)
+
         active_orders[user_id] = {
             "idNum": id_num,
             "phone": phone_num,
             "cost": rate,
             "status": "WAITING_OTP",
+            "message_id": sent_msg.message_id,
             "cancel_task": None,
             "poll_task": None
         }
@@ -280,9 +294,16 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await asyncio.sleep(300)
             if user_id in active_orders and active_orders[user_id]["status"] == "WAITING_OTP":
                 set_number_status(id_num, "bad")
+                msg_id = active_orders[user_id]["message_id"]
                 del active_orders[user_id]
                 try:
-                    await context.bot.send_message(user_id, f"⌛ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙲𝙰𝙽𝙲𝙴𝙻𝙻𝙴𝙳 𝙳𝚄𝙴 𝚃𝙾 𝚃𝙸𝙼𝙴𝙾𝚄𝚃 (𝟻 𝙼𝙸𝙽):** `{phone_num}`", parse_mode="Markdown")
+                    # টাইমআউট হলে মেসেজ আপডেট করে ক্যান্সেল দেখানো
+                    await context.bot.edit_message_text(
+                        chat_id=user_id,
+                        message_id=msg_id,
+                        text=f"⌛ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙲𝙰𝙽𝙲𝙴𝙻𝙻𝙴𝙳 𝙳𝚄𝙴 𝚃𝙾 𝚃𝙸𝙼𝙴𝙾𝚄𝚃 (𝟻 𝙼𝙸𝙽):** `{phone_num}`",
+                        parse_mode="Markdown"
+                    )
                 except Exception:
                     pass
 
@@ -295,6 +316,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     otp_code = str(sms_res["smsCode"])
                     order_info = active_orders[user_id]
                     order_info["status"] = "COMPLETED"
+                    order_msg_id = order_info["message_id"]
 
                     if order_info["cancel_task"]:
                         order_info["cancel_task"].cancel()
@@ -320,14 +342,24 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     )
                     
                     full_sms = sms_res.get("sms", "")
+                    inline_kb_copy = None
                     if full_sms:
-                        inline_kb = InlineKeyboardMarkup([
+                        inline_kb_copy = InlineKeyboardMarkup([
                             [InlineKeyboardButton("📋 𝙲𝙾𝙿𝚈 𝚂𝙼𝚂", callback_data=f"copy_sms:{user_id}")]
                         ])
                         context.user_data[f"full_sms_{user_id}"] = full_sms
-                        await context.bot.send_message(user_id, otp_msg, parse_mode="Markdown", reply_markup=inline_kb)
-                    else:
-                        await context.bot.send_message(user_id, otp_msg, parse_mode="Markdown")
+
+                    # পূর্বের "NUMBER PURCHASED" মেসেজটি আপডেট করে OTP দেখাবে (Cancel বাটন সরে যাবে)
+                    try:
+                        await context.bot.edit_message_text(
+                            chat_id=user_id,
+                            message_id=order_msg_id,
+                            text=otp_msg,
+                            parse_mode="Markdown",
+                            reply_markup=inline_kb_copy
+                        )
+                    except Exception as e:
+                        logging.error(f"Failed to edit message: {e}")
 
                     if OTP_GROUP_ID:
                         try:
@@ -348,18 +380,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         active_orders[user_id]["cancel_task"] = cancel_task
         active_orders[user_id]["poll_task"] = poll_task
-
-        inline_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🚫 𝙲𝙰𝙽𝙲𝙴𝙻 𝙽𝚄𝙼𝙱𝙴𝚁", callback_data="cancel_number")]
-        ])
-
-        buying_msg = (
-            f"✅ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙿𝚄𝚁𝙲𝙷𝙰𝚂𝙴𝙳!**\n\n"
-            f"📱 **𝙽𝚄𝙼𝙱𝙴𝚁:** `{phone_num}`\n"
-            f"💰 **𝙿𝚁𝙸𝙲𝙴:** `${rate:.2f}` USDT\n\n"
-            f"⏳ **𝚆𝙰𝙸𝚃𝙸𝙽𝙶 𝙵𝙾𝚁 𝙾𝚃𝙿 (𝙰𝚄𝚃𝙾 𝙿𝙾𝙻𝙻𝙸𝙽𝙶)...**"
-        )
-        await update.message.reply_text(buying_msg, parse_mode="Markdown", reply_markup=inline_kb)
 
     elif text == "👤 𝙼𝚈 𝙿𝚁𝙾𝙵𝙸𝙻𝙴":
         p_msg = (
