@@ -149,14 +149,14 @@ def get_main_keyboard(user_id):
 
 # VAK-SMS API Functions
 def set_number_status(id_num: str, status: str):
-    url = f"[https://vak-sms.com/api/setStatus/?apiKey=](https://vak-sms.com/api/setStatus/?apiKey=){VAK_SMS_API_KEY}&idNum={id_num}&status={status}"
+    url = f"https://vak-sms.com/api/setStatus/?apiKey={VAK_SMS_API_KEY}&idNum={id_num}&status={status}"
     try:
         return requests.get(url).json()
     except Exception as e:
         return {"error": str(e)}
 
 def get_vak_balance():
-    url = f"[https://vak-sms.com/api/getBalance/?apiKey=](https://vak-sms.com/api/getBalance/?apiKey=){VAK_SMS_API_KEY}"
+    url = f"https://vak-sms.com/api/getBalance/?apiKey={VAK_SMS_API_KEY}"
     try:
         res = requests.get(url).json()
         return float(res.get("balance", 0.0))
@@ -168,7 +168,7 @@ def buy_vak_number(max_price: float = 0.087):
     if current_panel_bal < max_price:
         return {"error": "Stock Out!"}
 
-    url = f"[https://vak-sms.com/api/getNumber/?apiKey=](https://vak-sms.com/api/getNumber/?apiKey=){VAK_SMS_API_KEY}&service=wa&country=cl&maxPrice={max_price}"
+    url = f"https://vak-sms.com/api/getNumber/?apiKey={VAK_SMS_API_KEY}&service=wa&country=cl&maxPrice={max_price}"
     try:
         res = requests.get(url).json()
         
@@ -192,7 +192,7 @@ def buy_vak_number(max_price: float = 0.087):
         return {"error": "Stock Out!"}
 
 def fetch_otp_code(id_num: str):
-    url = f"[https://vak-sms.com/api/getSmsCode/?apiKey=](https://vak-sms.com/api/getSmsCode/?apiKey=){VAK_SMS_API_KEY}&idNum={id_num}"
+    url = f"https://vak-sms.com/api/getSmsCode/?apiKey={VAK_SMS_API_KEY}&idNum={id_num}"
     try:
         return requests.get(url).json()
     except Exception as e:
@@ -277,14 +277,14 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "poll_task": None
         }
 
-        # Auto cancel timer after 15 minutes (900s)
+        # Auto cancel timer after 5 minutes (300s)
         async def auto_cancel():
-            await asyncio.sleep(900)
+            await asyncio.sleep(300)
             if user_id in active_orders and active_orders[user_id]["status"] == "WAITING_OTP":
                 set_number_status(id_num, "bad")
                 del active_orders[user_id]
                 try:
-                    await context.bot.send_message(user_id, f"⌛ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙲𝙰𝙽𝙲𝙴𝙻𝙻𝙴𝙳 𝙳𝚄𝙴 𝚃𝙾 𝚃𝙸𝙼𝙴𝙾𝚄𝚃 (𝟷𝟻 𝙼𝙸𝙽):** `{phone_num}`", parse_mode="Markdown")
+                    await context.bot.send_message(user_id, f"⌛ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙲𝙰𝙽𝙲𝙴𝙻𝙻𝙴𝙳 𝙳𝚄𝙴 𝚃𝙾 𝚃𝙸𝙼𝙴𝙾𝚄𝚃 (𝟻 𝙼𝙸𝙽):** `{phone_num}`", parse_mode="Markdown")
                 except Exception:
                     pass
 
