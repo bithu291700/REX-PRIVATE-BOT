@@ -87,7 +87,7 @@ def mask_number(phone_str: str) -> str:
         return clean_num
     prefix = clean_num[:4] if clean_num.startswith("+") else clean_num[:3]
     suffix = clean_num[-4:]
-    masked_part = "*" * (len(clean_num) - len(prefix) - len(suffix))
+    masked_part = "*" * (len(clean_num) - len(suffix) - len(prefix))
     return f"{prefix}{masked_part}{suffix}"
 
 def get_user(user_id: int):
@@ -155,12 +155,25 @@ def set_number_status(id_num: str, status: str):
     except Exception as e:
         return {"error": str(e)}
 
+def get_vak_balance():
+    url = f"https://vak-sms.com/api/getBalance/?apiKey={VAK_SMS_API_KEY}"
+    try:
+        res = requests.get(url).json()
+        return float(res.get("balance", 0.0))
+    except Exception:
+        return 0.0
+
 def buy_vak_number(max_price: float = 0.087):
+    # প্যানেলের বর্তমান ব্যালেন্স চেক
+    current_panel_bal = get_vak_balance()
+    if current_panel_bal < max_price:
+        return {"error": "Stock Out!"}
+
     url = f"https://vak-sms.com/api/getNumber/?apiKey={VAK_SMS_API_KEY}&service=wa&country=cl&maxPrice={max_price}"
     try:
         res = requests.get(url).json()
         
-        if isinstance(res, dict) and res.get("error") == "noNumber":
+        if isinstance(res, dict) and res.get("error") in ["noNumber", "noBalance"]:
             return {"error": "Stock Out!"}
             
         if isinstance(res, dict) and "tel" in res and "idNum" in res:
@@ -178,14 +191,6 @@ def buy_vak_number(max_price: float = 0.087):
         return res
     except Exception:
         return {"error": "Stock Out!"}
-
-def get_vak_balance():
-    url = f"https://vak-sms.com/api/getBalance/?apiKey={VAK_SMS_API_KEY}"
-    try:
-        res = requests.get(url).json()
-        return res.get("balance", 0.0)
-    except Exception:
-        return 0.0
 
 def fetch_otp_code(id_num: str):
     url = f"https://vak-sms.com/api/getSmsCode/?apiKey={VAK_SMS_API_KEY}&idNum={id_num}"
@@ -206,7 +211,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not is_bot_active() and not is_admin(user_id):
-        await update.message.reply_text("🚧 **ʙᴏᴛ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴀɪɴɪɴɢ ʙʏ ᴀᴅᴍɪɴ.** ᴘʟᴇᴀsᴇ ᴛʀʏ sᴏᴍᴇ ᴛɪᴍᴇ.", parse_mode="Markdown")
+        await update.message.reply_text("🚧 **ʙᴏᴛ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴀɪɴɪɴɢ ʙʏ ᴀ德ᴍɪɴ.** ᴘʟᴇᴀsᴇ ᴛʀʏ sᴏᴍᴇ ᴛɪᴍᴇ.", parse_mode="Markdown")
         return
 
     welcome_msg = (
@@ -240,7 +245,10 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg = f"💰 **𝙼𝚈 𝙱𝙰𝙻𝙰𝙽𝙲𝙴:** `${bot_bal:.4f}` USDT"
         if is_admin(user_id):
             site_bal = get_vak_balance()
+            # ০.০৭৯ হিসাব করে নম্বর গণনা
+            available_numbers = int(site_bal // 0.079)
             msg += f"\n🏦 **𝙿𝙰𝙽𝙴𝙻 𝙱𝙰𝙻𝙰𝙽𝙲𝙴 :** `${site_bal:.4f}` USD"
+            msg += f"\n📊 **𝙰𝚅𝙰𝙸𝙻𝙰𝙱𝙻𝙴 𝙽𝚄𝙼𝙱𝙴𝚁𝚂 (0.079/ea):** `{available_numbers}` Pcs"
         await update.message.reply_text(msg, parse_mode="Markdown")
         return
 
@@ -273,6 +281,12 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(
                 f"❌ 𝚂𝙾𝚁𝚁𝚈 𝙳𝙾 𝙽𝙾𝚃𝙴 𝙰𝙽𝙰𝙵 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${bot_rate}` USDT, 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: `${user_bal:.4f}` USDT.\n𝙳𝙸𝙿𝙾𝚂𝙸𝚃 𝙺𝙾𝚁𝚄𝙽."
             )
+            return
+
+        # নম্বর কেনার আগে প্যানেল স্টক/ব্যালেন্স চেক
+        site_bal = get_vak_balance()
+        if site_bal < max_price_limit:
+            await update.message.reply_text("❌ `Stock Out!`")
             return
 
         status_msg = await update.message.reply_text("⏳ `CHILE` 🇨🇱 BUYING WHATSAPP NUMBER... WAIT A FEW SECONDS.")
@@ -318,6 +332,10 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             asyncio.create_task(auto_check_otp(context, user_id, id_num, str(phone_num), sent_msg.message_id))
         else:
             err_msg = res.get("error", "Stock Out!") if isinstance(res, dict) else "Stock Out!"
+            try:
+                await status_msg.delete()
+            except Exception:
+                pass
             await update.message.reply_text(f"❌ `{err_msg}`")
         return
 
@@ -355,7 +373,7 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 return
             
             msg = f"👥 **All Registered Users ({len(all_users)}):**\n\n"
-            for u in all_users[:50]:  # Limit output length to prevent msg limit errors
+            for u in all_users[:50]:
                 uid = u.get("user_id", "N/A")
                 raw_name = str(u.get("full_name", "User"))
                 safe_name = raw_name.replace("*", "").replace("_", "").replace("`", "").replace("[", "").replace("]", "")
@@ -566,7 +584,6 @@ async def deposit_screenshot_received(update: Update, context: ContextTypes.DEFA
         f"🧾 **TxID:** `{txid}`"
     )
 
-    # Send request notification to ALL admins
     for admin_id in ADMIN_IDS:
         try:
             await context.bot.send_photo(chat_id=admin_id, photo=photo.file_id, caption=caption, parse_mode="Markdown", reply_markup=admin_kb)
