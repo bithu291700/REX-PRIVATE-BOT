@@ -478,35 +478,48 @@ async def deposit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("❌ 𝙱𝙰𝙽 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽 𝙲𝙾𝙽𝚃𝙰𝙲𝚃 𝙰𝙳𝙼𝙸𝙽.")
         return ConversationHandler.END
 
+    cancel_kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("❌ CANCEL DEPOSIT", callback_data="cancel_deposit")]
+    ])
+
     dep_msg = (
         f"💵 **𝙳𝙴𝙿𝙾𝚂𝙸𝚃 𝚅𝙸𝙰 𝙱𝙸𝙽𝙰𝙽𝙲𝙴 𝙿𝙰𝚈**\n\n"
-        f"🆔 **𝙱𝙸𝙽𝙰𝙽𝙲𝙴 𝙿𝙰𝚈 ID:** `{BINANCE_ID}`\n\n"
+        f"🆔 **𝙱𝙸𝙽𝙰𝙽𝙲𝙴 𝙿𝙰𝚈 ID:** `{BINANCE_ID}`\n"
+        f"⚠️ **𝙼𝙸𝙽𝙸𝙼𝚄𝙼 𝙳𝙴𝙿𝙾𝚂𝙸𝚃:** `$0.11` USDT\n\n"
         f"✍️ **𝚂𝙴𝙽𝙳 𝚃𝙷𝙴 𝙰𝙼𝙾𝚄𝙽𝚃 (𝚄𝚂𝙳𝚃) 𝚈𝙾𝚄 𝙷𝙰𝚅𝙴 𝚂𝙴𝙽𝚃:**"
     )
     if query:
-        await query.message.reply_text(dep_msg, parse_mode="Markdown")
+        await query.message.reply_text(dep_msg, parse_mode="Markdown", reply_markup=cancel_kb)
     else:
-        await update.message.reply_text(dep_msg, parse_mode="Markdown")
+        await update.message.reply_text(dep_msg, parse_mode="Markdown", reply_markup=cancel_kb)
         
     return WAITING_AMOUNT
 
 async def deposit_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
+    cancel_kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("❌ CANCEL DEPOSIT", callback_data="cancel_deposit")]
+    ])
     try:
         amount = float(text)
-        if amount <= 0:
-            raise ValueError()
+        if amount < 0.11:
+            await update.message.reply_text("❌ **MINIMUM DEPOSIT IS $0.11 USDT!**\nPlease enter an amount equal to or greater than $0.11:", reply_markup=cancel_kb)
+            return WAITING_AMOUNT
+
         context.user_data["dep_amount"] = amount
-        await update.message.reply_text("📥 **𝚂𝙴𝙽𝙳 𝚈𝙾𝚄𝚁 𝙱𝙸𝙽𝙰𝙽𝙲𝙴 𝙿𝙰𝚈 𝚃𝚇𝙸𝙳 / 𝙾𝚁𝙳𝙴𝚁 ID:**", parse_mode="Markdown")
+        await update.message.reply_text("📥 **𝚂𝙴𝙽𝙳 𝚈𝙾𝚄𝚁 𝙱𝙸𝙽𝙰𝙽𝙲𝙴 𝙿𝙰𝚈 𝚃𝚇𝙸𝙳 / 𝙾𝚁𝙳𝙴𝚁 ID:**", parse_mode="Markdown", reply_markup=cancel_kb)
         return WAITING_TXID
     except ValueError:
-        await update.message.reply_text("❌ INVALID AMOUNT. PLEASE ENTER A NUMBER (E.G. 5.0):")
+        await update.message.reply_text("❌ INVALID AMOUNT. PLEASE ENTER A NUMBER (E.G. 0.50):", reply_markup=cancel_kb)
         return WAITING_AMOUNT
 
 async def deposit_txid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     txid = update.message.text
     context.user_data["dep_txid"] = txid
-    await update.message.reply_text("📸 **𝚂𝙴𝙽𝙳 𝙰 𝚂𝙲𝚁𝙴𝙴𝙽𝚂𝙷𝙾𝚃 𝙾𝙵 𝚃𝙷𝙴 𝙿𝙰𝚈𝙼𝙴𝙽𝚃:**", parse_mode="Markdown")
+    cancel_kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("❌ CANCEL DEPOSIT", callback_data="cancel_deposit")]
+    ])
+    await update.message.reply_text("📸 **𝚂𝙴𝙽𝙳 𝙰 𝚂𝙲𝚁𝙴𝙴𝙽𝚂𝙷𝙾𝚃 𝙾𝙵 𝚃𝙷𝙴 𝙿𝙰𝚈𝙼𝙴𝙽𝚃:**", parse_mode="Markdown", reply_markup=cancel_kb)
     return WAITING_SCREENSHOT
 
 async def deposit_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -544,6 +557,13 @@ async def deposit_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except Exception as e:
             logging.error(f"Failed to send deposit to admin {admin_id}: {e}")
 
+    return ConversationHandler.END
+
+async def deposit_cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    context.user_data.clear()
+    await query.edit_message_text("❌ **𝙳𝙴𝙿𝙾𝚂𝙸𝚃 𝙿𝚁𝙾𝙲𝙴𝚂𝚂 𝙲𝙰𝙽𝙲𝙴𝙻𝙻𝙴𝙳!**", parse_mode="Markdown")
     return ConversationHandler.END
 
 # Admin Conversation Handlers
@@ -661,11 +681,22 @@ def main():
             CallbackQueryHandler(deposit_start, pattern="^pay_binance$")
         ],
         states={
-            WAITING_AMOUNT: [MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_amount)],
-            WAITING_TXID: [MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_txid)],
-            WAITING_SCREENSHOT: [MessageHandler(filters.PHOTO, deposit_screenshot)],
+            WAITING_AMOUNT: [
+                CallbackQueryHandler(deposit_cancel, pattern="^cancel_deposit$"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_amount)
+            ],
+            WAITING_TXID: [
+                CallbackQueryHandler(deposit_cancel, pattern="^cancel_deposit$"),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, deposit_txid)
+            ],
+            WAITING_SCREENSHOT: [
+                CallbackQueryHandler(deposit_cancel, pattern="^cancel_deposit$"),
+                MessageHandler(filters.PHOTO, deposit_screenshot)
+            ],
         },
-        fallbacks=[]
+        fallbacks=[
+            CallbackQueryHandler(deposit_cancel, pattern="^cancel_deposit$")
+        ]
     )
 
     # Admin Action Conversation Handler
