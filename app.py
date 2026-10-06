@@ -34,7 +34,7 @@ logging.basicConfig(
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 VAK_SMS_API_KEY = os.getenv("VAK_SMS_API_KEY", "087d6bfb54884a7bbfd963a232add065")
 
-# Multiple Admins Support (Commas or single ID formatted into list)
+# Multiple Admins Support
 ADMIN_IDS_RAW = os.getenv("ADMIN_ID", "123456789,987654321")
 ADMIN_IDS = [int(i.strip()) for i in ADMIN_IDS_RAW.split(",") if i.strip().isdigit()]
 
@@ -43,16 +43,16 @@ BINANCE_ID = os.getenv("BINANCE_ID", "907194603")
 ADMIN_BKASH = "01858582881"
 MONGODB_URI = os.getenv("MONGODB_URI")
 
-# MongoDB Setup (Isolated DB for 2nd Bot to prevent affecting Main Bot)
+# MongoDB Setup
 if not MONGODB_URI:
     logging.error("❌ MONGODB_URI Environment Variable missing!")
 client = MongoClient(MONGODB_URI)
-db = client["vaksms_child_bot_db"] # Dedicated Database Name for 2nd Bot
+db = client["vaksms_child_bot_db"]
 
 users_col = db["users"]
 settings_col = db["settings"]
 
-# Flask Web Server
+# Flask Web Server for Render Keep-Alive
 flask_app = Flask("")
 
 @flask_app.route("/")
@@ -62,19 +62,6 @@ def home():
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
     flask_app.run(host="0.0.0.0", port=port)
-
-# Self-Ping Heartbeat (Uptime Keeping Mechanism)
-async def self_ping():
-    await asyncio.sleep(10)
-    port = int(os.environ.get("PORT", 8080))
-    url = f"http://127.0.0.1:{port}/"
-    while True:
-        try:
-            requests.get(url, timeout=5)
-            logging.info("💓 Internal Ping Successful - Server kept alive.")
-        except Exception as e:
-            logging.warning(f"⚠️ Internal Ping warning: {e}")
-        await asyncio.sleep(300) # Ping every 5 minutes
 
 # In-Memory Active Orders
 active_orders = {}
@@ -116,8 +103,8 @@ def get_or_create_user(user_id: int, full_name: str = "User"):
             "full_name": full_name,
             "balance": 0.0,
             "otp_count": 0,
-            "selected_country": "cl",  # Fixed Chile (cl)
-            "selected_service": "wa",  # Fixed WhatsApp (wa)
+            "selected_country": "cl",
+            "selected_service": "wa",
             "is_banned": False,
             "subscription_expiry": None
         }
@@ -131,7 +118,7 @@ def get_rate():
     doc = settings_col.find_one({"type": "rates"})
     if doc and "rates" in doc and "wa_cl" in doc["rates"]:
         return float(doc["rates"]["wa_cl"])
-    return 0.10  # Default Chile WS rate
+    return 0.10
 
 def set_rate(rate: float):
     settings_col.update_one(
@@ -185,10 +172,8 @@ def buy_vak_number(service: str = "wa", country: str = "cl", max_price: float = 
     url = f"https://vak-sms.com/api/getNumber/?apiKey={VAK_SMS_API_KEY}&service={service}&country={country}&maxPrice={max_price}"
     try:
         res = requests.get(url).json()
-        
         if isinstance(res, dict) and res.get("error") == "noNumber":
             return {"error": "Stock Out!"}
-            
         if isinstance(res, dict) and "tel" in res and "idNum" in res:
             assigned_price = res.get("price")
             if assigned_price is not None:
@@ -200,9 +185,8 @@ def buy_vak_number(service: str = "wa", country: str = "cl", max_price: float = 
                         return {"error": "Stock Out!"}
                 except ValueError:
                     pass
-
         return res
-    except Exception as e:
+    except Exception:
         return {"error": "Stock Out!"}
 
 def get_vak_balance():
@@ -232,7 +216,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not is_bot_active() and not is_admin(user_id):
-        await update.message.reply_text("🚧 **ʙᴏᴛ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴀɪɴɪɴɢ ʙʏ ᴀᴅᴍɪɴ.** ᴘʟᴇᴀsᴇ ᴛʀʏ sᴏᴍᴇ ᴛɪᴍᴇ.", parse_mode="Markdown")
+        await update.message.reply_text("🚧 **ʙᴏᴛ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴀɪɴɪɴɢ ʙʏ ᴀᴅᴍɪɴ.**", parse_mode="Markdown")
         return
 
     if not is_subscribed(user_id):
@@ -257,13 +241,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     welcome_msg = (
         f"👋 **𝚆𝙴𝙻𝙲𝙾𝙼𝙴 CHILE WS BOT!**\n\n"
-        f"⚙️ ****𝚂𝙴𝚁𝚅𝙸𝙲𝙴𝚂:** `WhatsApp` | `Chile (+56)`\n"
+        f"⚙️ **𝚂𝙴𝚁𝚅𝙸𝙲𝙴𝚂:** `WhatsApp` | `Chile (+56)`\n"
         f"⏳ **𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝙴𝚇𝙿𝙸𝚁𝙴𝚂:** `{exp_str}`\n\n"
         f"🎯 𝙽𝙸𝙲𝙷𝙴𝚁 𝙼𝙴𝙽𝚄 𝚃𝙷𝙴𝙺𝙴 𝙾𝙿𝚃𝙸𝙾𝙽 𝚂𝙴𝙻𝙴𝙲𝚃 𝙺𝙾𝚁𝚄𝙽:"
     )
     await update.message.reply_text(welcome_msg, parse_mode="Markdown", reply_markup=get_main_keyboard(user_id))
 
-# Subscription Purchase Flow
+# Subscription Flow
 async def sub_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -330,7 +314,7 @@ async def sub_method_selected(update: Update, context: ContextTypes.DEFAULT_TYPE
             f"🪙 **Binance Pay (Subscription - {days} Days)**\n\n"
             f"💰 **Amount:** `{amt} USDT`\n"
             f"🆔 **Binance Pay ID:** `{BINANCE_ID}`\n\n"
-            f"⚠️️ **INSTRUCTION:**\n"
+            f"⚠️ **INSTRUCTION:**\n"
             f"1. Send `{amt} USDT` to Binance Pay ID.\n"
             f"2. Send Payment Screenshot below."
         )
@@ -369,7 +353,7 @@ async def sub_txid_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logging.error(f"Failed to notify admin {admin_id}: {e}")
 
-    await update.message.reply_text("✅ ** Request Sent to Admin!** Approval takes 5-30 mins.")
+    await update.message.reply_text("✅ **Request Sent to Admin!** Approval takes 5-30 mins.")
     return ConversationHandler.END
 
 async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -397,10 +381,10 @@ async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_
         except Exception as e:
             logging.error(f"Failed to notify admin {admin_id}: {e}")
 
-    await update.message.reply_text("✅ ** Request Sent to Admin!** Approval takes 5-30 mins.")
+    await update.message.reply_text("✅ **Request Sent to Admin!** Approval takes 5-30 mins.")
     return ConversationHandler.END
 
-# Deposit Flow (Balance Add)
+# Deposit Flow
 async def deposit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if not is_subscribed(user_id):
@@ -509,7 +493,7 @@ async def cancel_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.edit_text("❌ Action Cancelled.")
     return ConversationHandler.END
 
-# Admin Panel Flow Handlers
+# Admin Flow Handlers
 async def admin_ban_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -626,13 +610,12 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
     await update.message.reply_text(f"✅ Broadcast Sent to {count} Users!")
     return ConversationHandler.END
 
-# Callback Queries Manager
+# Callback Queries
 async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     data = query.data
     user_id = query.from_user.id
 
-    # Admin Subscription Approvals
     if data.startswith("sub_app_"):
         parts = data.split("_")
         target_uid = int(parts[2])
@@ -676,7 +659,6 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
         return
 
-    # Admin Deposit Approvals
     if data.startswith("dep_app_"):
         parts = data.split("_")
         target_uid = int(parts[2])
@@ -708,7 +690,6 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
             pass
         return
 
-    # Toggle Bot Maintenance
     if data == "admin_toggle_bot":
         if not is_admin(user_id):
             return
@@ -719,7 +700,6 @@ async def handle_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(f"⚙️ Bot Status updated to: **{status_str}**", parse_mode="Markdown")
         return
 
-    # Cancel Number Action
     if data.startswith("cancel_num_"):
         id_num = data.replace("cancel_num_", "")
         set_number_status(id_num, "bad")
@@ -749,7 +729,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Subscription Required. Send /start")
         return
 
-    # Main Buttons Routing
     if text == "💳 𝙰𝙲𝙲𝙾𝚄𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴":
         bal = u_data.get("balance", 0.0)
         await update.message.reply_text(f"💳 **𝚈𝙾𝚄𝚁 𝙲𝚄𝚁𝚁𝙴𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴:** `${bal:.2f}`", parse_mode="Markdown")
@@ -784,11 +763,11 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             return
 
-        wait_msg = await update.message.reply_text("🔄 ** Fetching Chile WhatsApp Number...**")
+        wait_msg = await update.message.reply_text("🔄 **Fetching Chile WhatsApp Number...**")
         res = buy_vak_number(service="wa", country="cl", max_price=0.079)
 
         if "error" in res:
-            await wait_msg.edit_text("❌ ** Stock Out! Please try again later.**")
+            await wait_msg.edit_text("❌ **Stock Out! Please try again later.**")
             return
 
         if "tel" in res and "idNum" in res:
@@ -808,7 +787,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
 
             num_msg = (
-                f"✅ ** 𝙽𝚄𝙼𝙱𝙴𝚁 𝙰𝚂𝚂𝙸𝙶𝙽𝙴𝙳!**\n\n"
+                f"✅ **𝙽𝚄𝙼𝙱𝙴𝚁 𝙰𝚂𝚂𝙸𝙶𝙽𝙴𝙳!**\n\n"
                 f"📱 **Number:** `{tel}`\n"
                 f"💵 **Cost:** `${cost:.2f}`\n"
                 f"⏳ **Status:** Waiting for OTP...\n\n"
@@ -816,7 +795,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
             await wait_msg.edit_text(num_msg, parse_mode="Markdown", reply_markup=cancel_kb)
 
-            # OTP Polling Task Background Async
             asyncio.create_task(poll_otp(context, user_id, id_num, tel, cost))
         else:
             await wait_msg.edit_text("❌ **Failed to fetch number. Try again.**")
@@ -849,23 +827,21 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # OTP Polling Background Task
 async def poll_otp(context: ContextTypes.DEFAULT_TYPE, user_id: int, id_num: str, tel: str, cost: float):
     start_time = datetime.now()
-    while (datetime.now() - start_time).seconds < 120:  # 2 Minutes Timeout
+    while (datetime.now() - start_time).seconds < 120:
         await asyncio.sleep(5)
 
         if id_num not in active_orders:
-            return  # Cancelled by user
+            return
 
         res = fetch_otp_code(id_num)
         if "smsCode" in res and res["smsCode"]:
             code = str(res["smsCode"])
 
-            # Deduct Balance
             users_col.update_one(
                 {"user_id": user_id},
                 {"$inc": {"balance": -cost, "otp_count": 1}}
             )
 
-            # Notify User
             otp_msg = (
                 f"🎉 **𝙾𝚃𝙿 𝚁𝙴𝙲𝙴𝙸𝚅𝙴𝙳!**\n\n"
                 f"📱 **Number:** `{tel}`\n"
@@ -877,7 +853,6 @@ async def poll_otp(context: ContextTypes.DEFAULT_TYPE, user_id: int, id_num: str
             except Exception:
                 pass
 
-            # Forward to Group (Masked)
             if OTP_GROUP_ID:
                 masked_p = mask_number(tel)
                 grp_msg = (
@@ -893,7 +868,6 @@ async def poll_otp(context: ContextTypes.DEFAULT_TYPE, user_id: int, id_num: str
             del active_orders[id_num]
             return
 
-    # Timeout Reached
     if id_num in active_orders:
         set_number_status(id_num, "bad")
         del active_orders[id_num]
@@ -902,8 +876,12 @@ async def poll_otp(context: ContextTypes.DEFAULT_TYPE, user_id: int, id_num: str
         except Exception:
             pass
 
-# Async Main Application Loop (With Extended Connection Timeouts)
-async def run_bot():
+# Application Setup
+def main():
+    # Start Flask Server
+    threading.Thread(target=run_flask, daemon=True).start()
+
+    # Create Bot Application
     app = (
         Application.builder()
         .token(BOT_TOKEN)
@@ -916,7 +894,7 @@ async def run_bot():
         .build()
     )
 
-    # Conversation Handlers Setup
+    # Conversation Handlers
     sub_conv = ConversationHandler(
         entry_points=[CallbackQueryHandler(sub_start, pattern="^buy_sub_start$")],
         states={
@@ -993,18 +971,8 @@ async def run_bot():
     app.add_handler(CallbackQueryHandler(handle_callbacks))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_messages))
 
-    # Background tasks
-    asyncio.create_task(self_ping())
-
-    async with app:
-        await app.start()
-        await app.updater.start_polling(drop_pending_updates=True)
-        logging.info("🤖 Child Bot (Chile WS) startup sequence completed. Polling started successfully.")
-        await asyncio.Event().wait()
+    logging.info("🤖 Starting Bot Polling...")
+    app.run_polling(drop_pending_updates=True, allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
-    # Start Flask Server in standard daemon thread
-    threading.Thread(target=run_flask, daemon=True).start()
-    
-    # Run Telegram Bot Async Event Loop
-    asyncio.run(run_bot())
+    main()
