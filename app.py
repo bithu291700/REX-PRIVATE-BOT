@@ -229,7 +229,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not is_bot_active() and not is_admin(user_id):
-        await update.message.reply_text("🚧 **ʙᴏᴛ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴀɪɴɪɴɢ ʙʏ ᴀᴅᴍɪɴ.** ᴘʟᴇᴀsᴇ ᴛʀʏ sᴏᴍᴇ ᴛɪᴍᴇ.", parse_mode="Markdown")
+        await update.message.reply_text("🚧 **ʙᴏᴛ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴀɪɴɪɴɢ ʙʏ ᴀᴅ𝙼𝙸𝙽.** ᴘʟᴇᴀsᴇ ᴛʀʏ sᴏᴍᴇ ᴛɪᴍᴇ.", parse_mode="Markdown")
         return
 
     # User Buttons
@@ -277,7 +277,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"💰 **𝙿𝚁𝙸𝙲𝙴:** `${rate:.2f}` USDT\n\n"
             f"⏳ **𝚆𝙰𝙸𝚃𝙸𝙽𝙶 𝙵𝙾𝚁 𝙾𝚃𝙿 (𝙰𝚄𝚃𝙾 𝙿𝙾𝙻𝙻𝙸𝙽𝙶)...**"
         )
-        # Message ID ট্র্যাক করার জন্য পাঠানো মেসেজের রেফারেন্স রাখা হলো
         sent_msg = await update.message.reply_text(buying_msg, parse_mode="Markdown", reply_markup=inline_kb)
 
         active_orders[user_id] = {
@@ -297,7 +296,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 msg_id = active_orders[user_id]["message_id"]
                 del active_orders[user_id]
                 try:
-                    # টাইমআউট হলে মেসেজ আপডেট করে ক্যান্সেল দেখানো
                     await context.bot.edit_message_text(
                         chat_id=user_id,
                         message_id=msg_id,
@@ -349,7 +347,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         ])
                         context.user_data[f"full_sms_{user_id}"] = full_sms
 
-                    # পূর্বের "NUMBER PURCHASED" মেসেজটি আপডেট করে OTP দেখাবে (Cancel বাটন সরে যাবে)
                     try:
                         await context.bot.edit_message_text(
                             chat_id=user_id,
@@ -404,7 +401,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         admin_kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("🚫 BAN USER", callback_data="admin_ban"), InlineKeyboardButton("✅ UNBAN USER", callback_data="admin_unban")],
             [InlineKeyboardButton("➕ ADD BALANCE", callback_data="admin_add_bal"), InlineKeyboardButton("🧹 ZERO BALANCE", callback_data="admin_zero_bal")],
-            [InlineKeyboardButton("⚙️ SET RATE", callback_data="admin_set_rate")],
+            [InlineKeyboardButton("📊 VIEW USERS", callback_data="admin_view_users"), InlineKeyboardButton("⚙️ SET RATE", callback_data="admin_set_rate")],
             [InlineKeyboardButton(f"🤖 BOT STATUS: {status_text}", callback_data="admin_toggle_bot")],
             [InlineKeyboardButton("📢 BROADCAST", callback_data="admin_broadcast")]
         ])
@@ -449,11 +446,37 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
             admin_kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🚫 BAN USER", callback_data="admin_ban"), InlineKeyboardButton("✅ UNBAN USER", callback_data="admin_unban")],
                 [InlineKeyboardButton("➕ ADD BALANCE", callback_data="admin_add_bal"), InlineKeyboardButton("🧹 ZERO BALANCE", callback_data="admin_zero_bal")],
-                [InlineKeyboardButton("⚙️ SET RATE", callback_data="admin_set_rate")],
+                [InlineKeyboardButton("📊 VIEW USERS", callback_data="admin_view_users"), InlineKeyboardButton("⚙️ SET RATE", callback_data="admin_set_rate")],
                 [InlineKeyboardButton(f"🤖 BOT STATUS: {status_text}", callback_data="admin_toggle_bot")],
                 [InlineKeyboardButton("📢 BROADCAST", callback_data="admin_broadcast")]
             ])
             await query.edit_message_reply_markup(reply_markup=admin_kb)
+
+        elif data == "admin_view_users":
+            all_users = list(users_col.find({}))
+            total_users = len(all_users)
+            
+            if total_users == 0:
+                await query.message.reply_text("📋 **NO USERS FOUND.**", parse_mode="Markdown")
+                return
+
+            text_msg = f"📊 **TOTAL BOT USERS:** `{total_users}`\n\n"
+            for u in all_users:
+                text_msg += (
+                    f"👤 **Name:** {u.get('full_name', 'N/A')}\n"
+                    f"🆔 **ID:** `{u.get('user_id')}`\n"
+                    f"💰 **Balance:** `${u.get('balance', 0.0):.4f}` USDT\n"
+                    f"📥 **OTP Bought:** {u.get('otp_count', 0)}\n"
+                    f"🚫 **Status:** {'Banned' if u.get('is_banned') else 'Active'}\n"
+                    f"----------------------------\n"
+                )
+
+            # 4000 ক্যারেক্টারের বেশি হলে আলাদা মেসেজে ভাগ করে পাঠানোর ব্যবস্থা
+            if len(text_msg) > 4000:
+                for i in range(0, len(text_msg), 4000):
+                    await query.message.reply_text(text_msg[i:i+4000], parse_mode="Markdown")
+            else:
+                await query.message.reply_text(text_msg, parse_mode="Markdown")
 
         elif data == "admin_ban":
             await query.message.reply_text("SEND USER ID TO BAN:")
