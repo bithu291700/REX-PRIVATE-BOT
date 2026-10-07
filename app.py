@@ -50,6 +50,7 @@ db = client["chile_wa_bot_db"]
 
 users_col = db["users"]
 settings_col = db["settings"]
+deposits_col = db["pending_deposits"]
 
 # Flask Web Server
 flask_app = Flask("")
@@ -471,7 +472,6 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
                     f"----------------------------\n"
                 )
 
-            # 4000 ক্যারেক্টারের বেশি হলে আলাদা মেসেজে ভাগ করে পাঠানোর ব্যবস্থা
             if len(text_msg) > 4000:
                 for i in range(0, len(text_msg), 4000):
                     await query.message.reply_text(text_msg[i:i+4000], parse_mode="Markdown")
@@ -576,6 +576,9 @@ async def deposit_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     await update.message.reply_text("✅ **𝙳𝙴𝙿𝙾𝚂𝙸𝚃 𝚁𝙴𝚀𝚄𝙴𝚂𝚃 𝚂𝚄𝙱𝙼𝙸𝚃𝚃𝙴𝙳!**\n𝙰𝚍𝚖𝚒𝚗 𝚠𝚒𝚕𝚕 𝚟𝚎𝚛𝚒𝚏𝚢 𝚊𝚗𝚍 𝚊𝚍𝚍 𝚢𝚘𝚞𝚛 𝚋𝚊𝚕𝚊𝚗𝚌𝚎 𝚜𝚘𝚘𝚗.", parse_mode="Markdown")
 
+    dep_id = f"{user_id}_{int(datetime.now().timestamp())}"
+    admin_messages = []
+
     for admin_id in ADMIN_IDS:
         try:
             admin_msg = (
@@ -586,19 +589,29 @@ async def deposit_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE)
             )
             approve_kb = InlineKeyboardMarkup([
                 [
-                    InlineKeyboardButton("✅ APPROVE", callback_data=f"app_dep:{user_id}:{amount}"),
-                    InlineKeyboardButton("❌ REJECT", callback_data=f"rej_dep:{user_id}")
+                    InlineKeyboardButton("✅ APPROVE", callback_data=f"app_dep:{dep_id}:{user_id}:{amount}"),
+                    InlineKeyboardButton("❌ REJECT", callback_data=f"rej_dep:{dep_id}:{user_id}")
                 ]
             ])
-            await context.bot.send_photo(
+            sent_m = await context.bot.send_photo(
                 chat_id=admin_id,
                 photo=photo_file_id,
                 caption=admin_msg,
                 parse_mode="Markdown",
                 reply_markup=approve_kb
             )
+            admin_messages.append({"chat_id": admin_id, "message_id": sent_m.message_id})
         except Exception as e:
             logging.error(f"Failed to send deposit to admin {admin_id}: {e}")
+
+    # Save details to sync updates across all admins
+    deposits_col.insert_one({
+        "dep_id": dep_id,
+        "user_id": user_id,
+        "amount": amount,
+        "status": "PENDING",
+        "admin_messages": admin_messages
+    })
 
     return ConversationHandler.END
 
@@ -695,18 +708,53 @@ async def admin_deposit_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     parts = data.split(":")
     action = parts[0]
-    target_uid = int(parts[1])
+    dep_id = parts[1]
+    target_uid = int(parts[2])
+
+    dep_doc = deposits_col.find_one({"dep_id": dep_id})
+    if not dep_doc or dep_doc.get("status") != "PENDING":
+        await query.message.reply_text("⚠️ **THIS DEPOSIT REQUEST WAS ALREADY PROCESSED.**", parse_mode="Markdown")
+        return
+
+    admin_messages = dep_doc.get("admin_messages", [])
 
     if action == "app_dep":
-        amt = float(parts[2])
+        amt = float(parts[3])
         users_col.update_one({"user_id": target_uid}, {"$inc": {"balance": amt}})
-        await query.edit_message_caption(caption=f"{query.message.caption}\n\n✅ **APPROVED BY ADMIN**", parse_mode="Markdown")
+        deposits_col.update_one({"dep_id": dep_id}, {"$set": {"status": "APPROVED"}})
+
+        # Update message for ALL admins
+        for amsg in admin_messages:
+            try:
+                await context.bot.edit_message_caption(
+                    chat_id=amsg["chat_id"],
+                    message_id=amsg["message_id"],
+                    caption=f"{query.message.caption}\n\n✅ **APPROVED BY ADMIN**",
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                logging.error(f"Failed to sync approve status to admin {amsg['chat_id']}: {e}")
+
         try:
             await context.bot.send_message(target_uid, f"🎉 **𝙰𝚙𝚗𝚊𝚛 `${amt:.2f}` USDT 𝚍𝚎𝚙𝚘𝚜𝚒𝚝 𝚜𝚑𝚘𝚏𝚘𝚕𝚋𝚑𝚊𝚋𝚎 𝚓𝚞𝚔𝚝𝚘 𝚔𝚘𝚛𝚊 𝚑𝚘𝚢𝚎𝚌𝚑𝚎!**", parse_mode="Markdown")
         except Exception:
             pass
+
     elif action == "rej_dep":
-        await query.edit_message_caption(caption=f"{query.message.caption}\n\n❌ **REJECTED BY ADMIN**", parse_mode="Markdown")
+        deposits_col.update_one({"dep_id": dep_id}, {"$set": {"status": "REJECTED"}})
+
+        # Update message for ALL admins
+        for amsg in admin_messages:
+            try:
+                await context.bot.edit_message_caption(
+                    chat_id=amsg["chat_id"],
+                    message_id=amsg["message_id"],
+                    caption=f"{query.message.caption}\n\n❌ **REJECTED BY ADMIN**",
+                    parse_mode="Markdown"
+                )
+            except Exception as e:
+                logging.error(f"Failed to sync reject status to admin {amsg['chat_id']}: {e}")
+
         try:
             await context.bot.send_message(target_uid, "❌ **𝙰𝚙𝚗𝚊𝚛 𝚍𝚎𝚙𝚘𝚜𝚒𝚝 𝚛𝚎𝚀𝚞𝚎𝚜𝚝 𝚝𝚒 𝚛𝚎𝚓𝚎𝚌𝚝 𝚔𝚘𝚛𝚊 𝚑𝚘𝚢𝚎𝚌𝚑𝚎!**", parse_mode="Markdown")
         except Exception:
