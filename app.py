@@ -3,7 +3,7 @@ import os
 import threading
 import asyncio
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask
 from pymongo import MongoClient
 from telegram import (
@@ -40,6 +40,7 @@ ADMIN_IDS = [int(x.strip()) for x in ADMIN_IDS_RAW.split(",") if x.strip().isdig
 
 OTP_GROUP_ID = os.getenv("OTP_GROUP_ID")
 BINANCE_ID = os.getenv("BINANCE_ID", "1102671249")
+ADMIN_BKASH = "01858582881"
 MONGODB_URI = os.getenv("MONGODB_URI")
 
 # MongoDB Setup
@@ -68,6 +69,7 @@ active_orders = {}
 
 # Conversation States
 WAITING_AMOUNT, WAITING_TXID, WAITING_SCREENSHOT = range(3)
+SUB_DAYS, SUB_TXID, SUB_SCREENSHOT = range(3, 6)
 (
     ADMIN_BAN,
     ADMIN_UNBAN,
@@ -76,7 +78,7 @@ WAITING_AMOUNT, WAITING_TXID, WAITING_SCREENSHOT = range(3)
     ADMIN_ZERO_BAL_USER,
     ADMIN_RATE_WA_CL_SET,
     ADMIN_BROADCAST,
-) = range(3, 10)
+) = range(6, 13)
 
 # Helper Functions
 def is_admin(user_id: int) -> bool:
@@ -105,12 +107,24 @@ def get_or_create_user(user_id: int, full_name: str = "User"):
             "selected_country": "cl",
             "selected_service": "wa",
             "is_banned": False,
+            "subscription_expiry": None,
+            "sub_days": 5
         }
         users_col.insert_one(user_data)
         return user_data
     else:
         users_col.update_one({"user_id": user_id}, {"$set": {"full_name": full_name}})
         return user
+
+def is_subscribed(user_id: int) -> bool:
+    if is_admin(user_id):
+        return True
+    user = get_user(user_id)
+    if user and user.get("subscription_expiry"):
+        expiry = user["subscription_expiry"]
+        if datetime.now() < expiry:
+            return True
+    return False
 
 def get_rate():
     doc = settings_col.find_one({"type": "rates"})
@@ -211,7 +225,25 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     if not is_bot_active() and not is_admin(user_id):
-        await update.message.reply_text("🚧 **ʙᴏᴛ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴀɪɴɪɴɢ ʙʏ ᴀᴅᴍɪɴ.** ᴘʟᴇᴀsᴇ ᴛʀʏ sᴏᴍᴇ ᴛɪᴍᴇ.", parse_mode="Markdown")
+        await update.message.reply_text("🚧 **ʙᴏᴛ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴀɪɴɪɴɢ ʙʏ ᴀᴅᴍ𝙸𝙽.** ᴘʟᴇᴀsᴇ ᴛʀʏ sᴏᴍᴇ ᴛɪᴍᴇ.", parse_mode="Markdown")
+        return
+
+    if not is_subscribed(user_id):
+        sub_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💳 5 Days (50 Tk)", callback_data="buy_sub_5")],
+            [InlineKeyboardButton("💳 7 Days (70 Tk)", callback_data="buy_sub_7")]
+        ])
+        msg = (
+            f"👋 Hello {user.full_name}!\n\n"
+            f"❌ **YOU DO NOT HAVE AN ACTIVE SUBSCRIPTION!**\n"
+            f"Bot bebohar korte chaile subscription nite hobe.\n\n"
+            f"📌 PRICE & VALIDITY:\n"
+            f"• 5 Days = 50 Tk\n"
+            f"• 7 Days = 70 Tk\n\n"
+            f"Nicher button-e click kore subscription kinun:"
+        )
+        await update.message.reply_text(msg, parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("👇 **BUY SUBSCRIPTION:**", parse_mode="Markdown", reply_markup=sub_kb)
         return
 
     welcome_msg = (
@@ -231,6 +263,15 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not is_bot_active() and not is_admin(user_id):
         await update.message.reply_text("🚧 **ʙᴏᴛ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴀɪɴɪɴɢ ʙʏ ᴀᴅ𝙼𝙸𝙽.** ᴘʟᴇᴀsᴇ ᴛʀʏ sᴏᴍᴇ ᴛɪᴍᴇ.", parse_mode="Markdown")
+        return
+
+    if not is_subscribed(user_id):
+        sub_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("💳 5 Days (50 Tk)", callback_data="buy_sub_5")],
+            [InlineKeyboardButton("💳 7 Days (70 Tk)", callback_data="buy_sub_7")]
+        ])
+        await update.message.reply_text("❌ **SUBSCRIPTION EXPIRED! BUY NEW SUBSCRIPTION.**", parse_mode="Markdown", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text("👇 **BUY SUBSCRIPTION:**", parse_mode="Markdown", reply_markup=sub_kb)
         return
 
     # User Buttons
@@ -380,12 +421,15 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         active_orders[user_id]["poll_task"] = poll_task
 
     elif text == "👤 𝙼𝚈 𝙿𝚁𝙾𝙵𝙸𝙻𝙴":
+        exp_time = u_data.get("subscription_expiry")
+        exp_str = exp_time.strftime("%Y-%m-%d %H:%M") if (exp_time and not is_admin(user_id)) else "Unlimited (Admin)"
         p_msg = (
             f"👤 **𝚄𝚂𝙴𝚁 𝙿𝚁𝙾𝙵𝙸𝙻𝙴**\n\n"
             f"🆔 **𝚄𝚂𝙴𝚁 ID:** `{user_id}`\n"
             f"📛 **𝙽𝙰𝙼𝙴:** {u_data.get('full_name', 'User')}\n"
-            f"💰 **𝙱𝙰𝙻𝙰𝙽𝙲𝙴:** `${u_data.get('balance', 0.0):.4f}` USDT\n"
-            f"📊 **𝚃𝙾𝚃𝙰𝙻 𝙾𝚃𝙿 𝙱𝙾𝚄𝙶𝙷𝚃:** {u_data.get('otp_count', 0)}"
+            f"💵 **𝙱𝙰𝙻𝙰𝙽𝙲𝙴:** `${u_data.get('balance', 0.0):.4f}` USDT\n"
+            f"📊 **𝚃𝙾𝚃𝙰𝙻 𝙾𝚃𝙿 𝙱𝙾𝚄𝙶𝙷𝚃:** {u_data.get('otp_count', 0)}\n"
+            f"📅 **𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚅𝙰𝙻𝙸𝙳:** {exp_str}"
         )
         await update.message.reply_text(p_msg, parse_mode="Markdown")
 
@@ -503,6 +547,90 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
             await query.message.reply_text("SEND BROADCAST MESSAGE TO ALL USERS:")
             return ADMIN_BROADCAST
 
+# Subscription Purchase Flow Handlers
+async def sub_start_5(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    users_col.update_one({"user_id": user_id}, {"$set": {"sub_days": 5}})
+    
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_sub_flow")]])
+    msg = (
+        f"💰 **PLAN:** 5 Days\n"
+        f"💰 **AMOUNT:** 50 Tk\n\n"
+        f"👇 **SEND BKASH PERSONAL NUMBER:**\n"
+        f"📱 **BKASH NUMBER:** `{ADMIN_BKASH}`\n\n"
+        f"Taka dewa sese apnar TrxID-ti likhe pathan:"
+    )
+    await query.message.reply_text(msg, parse_mode="Markdown", reply_markup=cancel_kb)
+    return SUB_TXID
+
+async def sub_start_7(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    users_col.update_one({"user_id": user_id}, {"$set": {"sub_days": 7}})
+    
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_sub_flow")]])
+    msg = (
+        f"💰 **PLAN:** 7 Days\n"
+        f"💰 **AMOUNT:** 70 Tk\n\n"
+        f"👇 **SEND BKASH PERSONAL NUMBER:**\n"
+        f"📱 **BKASH NUMBER:** `{ADMIN_BKASH}`\n\n"
+        f"Taka dewa sese apnar TrxID-ti likhe pathan:"
+    )
+    await query.message.reply_text(msg, parse_mode="Markdown", reply_markup=cancel_kb)
+    return SUB_TXID
+
+async def sub_txid_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    txid = update.message.text.strip()
+    context.user_data["sub_txid"] = txid
+    cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_sub_flow")]])
+    await update.message.reply_text("📸 **Ekhon apnar payment-er screenshot (Photo) Pathan:**", parse_mode="Markdown", reply_markup=cancel_kb)
+    return SUB_SCREENSHOT
+
+async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    photo = update.message.photo[-1]
+    txid = context.user_data.get("sub_txid")
+    user_doc = users_col.find_one({"user_id": user.id})
+    days = user_doc.get("sub_days", 5) if user_doc else 5
+    price_str = f"{50 if days == 5 else 70} Tk"
+
+    admin_kb = InlineKeyboardMarkup([
+        [
+            InlineKeyboardButton("✅ APPROVED", callback_data=f"approve_sub_{user.id}"),
+            InlineKeyboardButton("❌ REJECTED", callback_data=f"reject_sub_{user.id}")
+        ]
+    ])
+
+    caption = (
+        f"🔔 **NEW SUBSCRIPTION REQUEST!**\n\n"
+        f"👤 **USER:** {user.full_name} (`{user.id}`)\n"
+        f"💳 **METHOD:** BKASH\n"
+        f"📅 **PLAN:** {days} Days\n"
+        f"💰 **AMOUNT:** {price_str}\n"
+        f"🧾 **TrxID:** `{txid}`"
+    )
+
+    for admin_id in ADMIN_IDS:
+        try:
+            await context.bot.send_photo(chat_id=admin_id, photo=photo.file_id, caption=caption, parse_mode="Markdown", reply_markup=admin_kb)
+        except Exception:
+            pass
+
+    await update.message.reply_text("✅ Apnar subscription request admin-er kache pathano hoyeche! Admin approve korlei bot active hoye jaabe.")
+    return ConversationHandler.END
+
+async def cancel_sub_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    try:
+        await query.message.delete()
+    except Exception:
+        pass
+    return ConversationHandler.END
+
 # Deposit Conversation Handlers
 async def deposit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -604,7 +732,6 @@ async def deposit_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE)
         except Exception as e:
             logging.error(f"Failed to send deposit to admin {admin_id}: {e}")
 
-    # Save details to sync updates across all admins
     deposits_col.insert_one({
         "dep_id": dep_id,
         "user_id": user_id,
@@ -658,7 +785,7 @@ async def admin_add_bal_amt_process(update: Update, context: ContextTypes.DEFAUL
         users_col.update_one({"user_id": target_id}, {"$inc": {"balance": amt}})
         await update.message.reply_text(f"✅ ADDED `${amt:.2f}` USDT TO USER `{target_id}`.", parse_mode="Markdown")
         try:
-            await context.bot.send_message(target_id, f"🎉 **𝙰𝚙𝚗𝚊𝚛 `${amt:.2f}` USDT 𝚍𝚎𝚙𝚘𝚜𝚒𝚝 𝚜𝚑𝚘𝚏𝚘𝚕𝚋𝚑𝚊𝚋𝚎 𝚓𝚞𝚔𝚝𝚘 𝚔𝚘𝚛𝚊 𝚑𝚘𝚢𝚎𝚌𝚑𝚎!**", parse_mode="Markdown")
+            await context.bot.send_message(target_id, f"🎉 **𝙰𝚙𝚗𝚊𝚛 `${amt:.2f}` USDT 𝚍𝚎𝚙𝚘𝚜𝚒𝚝 𝚜𝚑𝚘𝚏𝚘𝚕b𝚑𝚊𝚋𝚎 𝚓𝚞𝚔𝚝𝚘 𝚔𝚘𝚛𝚊 𝚑𝚘𝚢𝚎𝚌𝚑𝚎!**", parse_mode="Markdown")
         except Exception:
             pass
     except ValueError:
@@ -723,7 +850,6 @@ async def admin_deposit_callback(update: Update, context: ContextTypes.DEFAULT_T
         users_col.update_one({"user_id": target_uid}, {"$inc": {"balance": amt}})
         deposits_col.update_one({"dep_id": dep_id}, {"$set": {"status": "APPROVED"}})
 
-        # Update message for ALL admins
         for amsg in admin_messages:
             try:
                 await context.bot.edit_message_caption(
@@ -743,7 +869,6 @@ async def admin_deposit_callback(update: Update, context: ContextTypes.DEFAULT_T
     elif action == "rej_dep":
         deposits_col.update_one({"dep_id": dep_id}, {"$set": {"status": "REJECTED"}})
 
-        # Update message for ALL admins
         for amsg in admin_messages:
             try:
                 await context.bot.edit_message_caption(
@@ -760,10 +885,66 @@ async def admin_deposit_callback(update: Update, context: ContextTypes.DEFAULT_T
         except Exception:
             pass
 
+# Subscription Admin Approval Callbacks
+async def handle_sub_approval_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    admin_id = query.from_user.id
+
+    if not is_admin(admin_id):
+        return
+
+    if data.startswith("approve_sub_"):
+        target_id = int(data.split("_")[2])
+        user_doc = users_col.find_one({"user_id": target_id})
+        days = user_doc.get("sub_days", 5) if user_doc else 5
+        expiry_date = datetime.now() + timedelta(days=days)
+        users_col.update_one({"user_id": target_id}, {"$set": {"subscription_expiry": expiry_date}})
+        
+        try:
+            await query.edit_message_caption(caption=query.message.caption + f"\n\n✅ **Subscription Approved ({days} Days Active)!**", parse_mode="Markdown")
+        except Exception:
+            pass
+
+        try:
+            await context.bot.send_message(
+                chat_id=target_id,
+                text=f"🎉 **Apnar Subscription Approved hoyeche!** {days} Diner jonno bot-er sob features active kora hoyeche.",
+                parse_mode="Markdown",
+                reply_markup=get_main_keyboard(target_id)
+            )
+        except Exception:
+            pass
+
+    elif data.startswith("reject_sub_"):
+        target_id = int(data.split("_")[2])
+        try:
+            await query.edit_message_caption(caption=query.message.caption + "\n\n❌ **Subscription Rejected!**", parse_mode="Markdown")
+        except Exception:
+            pass
+        try:
+            await context.bot.send_message(chat_id=target_id, text="❌ **Apnar subscription request-ti batil kora hoyeche.**", parse_mode="Markdown")
+        except Exception:
+            pass
+
 def main():
     threading.Thread(target=run_flask, daemon=True).start()
 
     app = Application.builder().token(BOT_TOKEN).build()
+
+    # Subscription Flow Handler
+    sub_conv = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(sub_start_5, pattern="^buy_sub_5$"),
+            CallbackQueryHandler(sub_start_7, pattern="^buy_sub_7$")
+        ],
+        states={
+            SUB_TXID: [MessageHandler(filters.TEXT & ~filters.COMMAND, sub_txid_received)],
+            SUB_SCREENSHOT: [MessageHandler(filters.PHOTO, sub_screenshot_received)]
+        },
+        fallbacks=[CallbackQueryHandler(cancel_sub_flow, pattern="^cancel_sub_flow$")]
+    )
 
     # Deposit Conversation Handler
     deposit_handler = ConversationHandler(
@@ -808,9 +989,11 @@ def main():
     )
 
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(sub_conv)
     app.add_handler(deposit_handler)
     app.add_handler(admin_handler)
     app.add_handler(CallbackQueryHandler(admin_deposit_callback, pattern="^(app_dep|rej_dep):"))
+    app.add_handler(CallbackQueryHandler(handle_sub_approval_callbacks, pattern="^(approve_sub_|reject_sub_)"))
     app.add_handler(CallbackQueryHandler(handle_callback_query))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_messages))
 
