@@ -63,7 +63,7 @@ deposits_col = db["pending_deposits"]
 def emoji(emoji_id: str, fallback: str = "✨") -> str:
     return f'<tg-emoji emoji-id="{emoji_id}">{fallback}</tg-emoji>'
 
-# Premium Emoji Mapping (Protiti section ebong message-er jonno nikhut custom emojis)
+# Premium Emoji Mapping
 E_CL = emoji("5222350726340032308", "🇨🇱")
 E_WA = emoji("5334759662677957452", "💬")
 E_SUB_VALID = emoji("5352638632278660622", "📅")
@@ -193,14 +193,16 @@ def get_main_keyboard(user_id):
         keyboard.append([KeyboardButton("⚙️ 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻")])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-# VAK-SMS API Functions with Robust Retry Mechanism for Concurrency
+# VAK-SMS API Functions with Robust Retry Mechanism for Concurrency Handling
 def set_number_status(id_num: str, status: str):
     url = f"https://vak-sms.com/api/setStatus/?apiKey={VAK_SMS_API_KEY}&idNum={id_num}&status={status}"
     for attempt in range(3):
         try:
             res = requests.get(url, timeout=7)
             if res.status_code == 200:
-                return res.json()
+                data = res.json()
+                if isinstance(data, dict) and (data.get("status") == "success" or "error" not in data or data.get("status") is True):
+                    return data
         except Exception as e:
             logging.error(f"Attempt {attempt+1} failed to set status {status} for idNum {id_num}: {e}")
             import time
@@ -364,8 +366,9 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "poll_task": None
         }
 
+        # Auto cancel set to exactly 3 minutes (180 seconds)
         async def auto_cancel():
-            await asyncio.sleep(300)
+            await asyncio.sleep(180)
             if user_id in active_orders and active_orders[user_id]["status"] == "WAITING_OTP":
                 set_number_status(id_num, "bad")
                 msg_id = active_orders[user_id]["message_id"]
@@ -374,7 +377,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await context.bot.edit_message_text(
                         chat_id=user_id,
                         message_id=msg_id,
-                        text=f"{E_CANCEL} <b>𝙽𝚄𝙼𝙱𝙴𝚁 𝙲𝙰𝙽𝙲𝙴𝙻𝙻𝙴𝙳 𝙳𝚄𝙴 𝚃𝙾 𝚃𝙸𝙼𝙴𝙾𝚄𝚃 (𝟻 𝙼𝙸𝙽):</b> <code>{phone_num}</code> {E_PHONE}",
+                        text=f"{E_CANCEL} <b>𝙽𝚄𝙼𝙱𝙴𝚁 𝙲𝙰𝙽𝙲𝙴𝙻𝙻𝙴𝙳 𝙳𝚄𝙴 𝚃𝙾 𝚃𝙸𝙼𝙴𝙾𝚄𝚃 (𝟹 𝙼𝙸𝙽):</b> <code>{phone_num}</code> {E_PHONE}",
                         parse_mode="HTML"
                     )
                 except Exception:
@@ -394,7 +397,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if order_info["cancel_task"]:
                         order_info["cancel_task"].cancel()
 
-                    # Deduct balance securely and increment OTP count
+                    # Deduct balance safely and increment OTP count
                     users_col.update_one(
                         {"user_id": user_id},
                         {
@@ -1020,7 +1023,7 @@ def main():
         ],
         states={
             ADMIN_BAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_ban_process)],
-            ADMIN_UNban: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_unban_process)],
+            ADMIN_UNBAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_unban_process)],
             ADMIN_ADD_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_user_process)],
             ADMIN_ADD_BAL_AMT: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_amt_process)],
             ADMIN_ZERO_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_zero_bal_process)],
@@ -1042,5 +1045,5 @@ def main():
     logging.info("Starting Telegram Bot...")
     app.run_polling()
 
-if __name__ == "__main__":
+if __name__ == "__main"].__name__ == "__main__":
     main()
