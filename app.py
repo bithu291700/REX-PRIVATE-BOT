@@ -63,7 +63,7 @@ deposits_col = db["pending_deposits"]
 def emoji(emoji_id: str, fallback: str = "✨") -> str:
     return f'<tg-emoji emoji-id="{emoji_id}">{fallback}</tg-emoji>'
 
-# Premium Emoji Mapping
+# Premium Emoji Mapping (Protiti section ebong message-er jonno nikhut custom emojis)
 E_CL = emoji("5222350726340032308", "🇨🇱")
 E_WA = emoji("5334759662677957452", "💬")
 E_SUB_VALID = emoji("5352638632278660622", "📅")
@@ -153,7 +153,6 @@ def is_subscribed(user_id: int) -> bool:
     user = get_user(user_id)
     if user and user.get("subscription_expiry"):
         expiry = user["subscription_expiry"]
-        # Compare with BD time (naive comparison since expiry is stored relative to BD time)
         if get_bd_time().replace(tzinfo=None) < expiry:
             return True
     return False
@@ -162,7 +161,7 @@ def get_rate():
     doc = settings_col.find_one({"type": "rates"})
     if doc and "rates" in doc and "wa_cl" in doc["rates"]:
         return float(doc["rates"]["wa_cl"])
-    return 0.10  # Default rate for Chile WA
+    return 0.10
 
 def set_rate(rate: float):
     settings_col.update_one(
@@ -194,18 +193,24 @@ def get_main_keyboard(user_id):
         keyboard.append([KeyboardButton("⚙️ 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻")])
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-# VAK-SMS API Functions
+# VAK-SMS API Functions with Robust Retry Mechanism for Concurrency
 def set_number_status(id_num: str, status: str):
     url = f"https://vak-sms.com/api/setStatus/?apiKey={VAK_SMS_API_KEY}&idNum={id_num}&status={status}"
-    try:
-        return requests.get(url).json()
-    except Exception as e:
-        return {"error": str(e)}
+    for attempt in range(3):
+        try:
+            res = requests.get(url, timeout=7)
+            if res.status_code == 200:
+                return res.json()
+        except Exception as e:
+            logging.error(f"Attempt {attempt+1} failed to set status {status} for idNum {id_num}: {e}")
+            import time
+            time.sleep(1)
+    return {"error": "Failed after retries"}
 
 def get_vak_balance():
     url = f"https://vak-sms.com/api/getBalance/?apiKey={VAK_SMS_API_KEY}"
     try:
-        res = requests.get(url).json()
+        res = requests.get(url, timeout=7).json()
         return float(res.get("balance", 0.0))
     except Exception:
         return 0.0
@@ -213,7 +218,7 @@ def get_vak_balance():
 def buy_vak_number(max_price: float = 0.087):
     url = f"https://vak-sms.com/api/getNumber/?apiKey={VAK_SMS_API_KEY}&service=wa&country=cl&maxPrice={max_price}"
     try:
-        res = requests.get(url).json()
+        res = requests.get(url, timeout=7).json()
         
         if isinstance(res, dict) and res.get("error") in ["noNumber", "noBalance"]:
             return {"error": "Stock Out!"}
@@ -237,7 +242,7 @@ def buy_vak_number(max_price: float = 0.087):
 def fetch_otp_code(id_num: str):
     url = f"https://vak-sms.com/api/getSmsCode/?apiKey={VAK_SMS_API_KEY}&idNum={id_num}"
     try:
-        return requests.get(url).json()
+        return requests.get(url, timeout=7).json()
     except Exception as e:
         return {"error": str(e)}
 
@@ -249,11 +254,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u_data = get_or_create_user(user_id, user.full_name)
 
     if u_data.get("is_banned", False):
-        await update.message.reply_text(f"{E_BAN} 𝙱𝙰𝙽 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽 𝙲𝙾𝙽𝚃𝙰𝙲𝚃 𝙰𝙳𝙼𝙸𝙽.", parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text(f"{E_BAN} <b>𝙱𝙰𝙽 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽 𝙲𝙾𝙽𝚃𝙰𝙲𝚃 𝙰𝙳𝙼𝙸𝙽.</b>", parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
         return
 
     if not is_bot_active() and not is_admin(user_id):
-        await update.message.reply_text("🚧 <b>ʙᴏᴛ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴀɪɴɪɴɢ ʙʏ ᴀᴅᴍɪɴ.</b> ᴘʟᴇᴀsᴇ ᴛʀʏ sᴏᴍᴇ ᴛɪᴍᴇ.", parse_mode="HTML")
+        await update.message.reply_text(f"🚧 <b>ʙᴏᴛ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴀɪɴɪɴɢ ʙʏ ᴀᴅᴍɪɴ.</b> {E_CANCEL} ᴘʟᴇᴀsᴇ ᴛʀʏ sᴏᴍᴇ ᴛɪᴍᴇ.", parse_mode="HTML")
         return
 
     if not is_subscribed(user_id):
@@ -262,21 +267,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("💳 7 Days (70 Tk)", callback_data="buy_sub_7")]
         ])
         msg = (
-            f"👋 Hello {user.full_name}!\n\n"
+            f"👋 Hello {user.full_name}! {E_WELCOME}\n\n"
             f"{E_BAN} <b>YOU DO NOT HAVE AN ACTIVE SUBSCRIPTION!</b> {E_SUB_EXP}\n"
             f"Bot bebohar korte chaile subscription nite hobe.\n\n"
             f"📌 PRICE & VALIDITY:\n"
-            f"• 5 Days = 50 Tk\n"
-            f"• 7 Days = 70 Tk\n\n"
+            f"• 5 Days = 50 Tk {E_SUB_VALID}\n"
+            f"• 7 Days = 70 Tk {E_SUB_VALID}\n\n"
             f"Nicher button-e click kore subscription kinun:"
         )
         await update.message.reply_text(msg, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
-        await update.message.reply_text("👇 <b>BUY SUBSCRIPTION:</b>", parse_mode="HTML", reply_markup=sub_kb)
+        await update.message.reply_text(f"👇 <b>BUY SUBSCRIPTION:</b> {E_PAY_SELECT}", parse_mode="HTML", reply_markup=sub_kb)
         return
 
     welcome_msg = (
         f"👋 <b>𝚆𝙴𝙻𝙲𝙾𝙼𝙴 𝙲𝙷𝙸𝙻𝙴 𝚆𝙷𝙰𝚃𝚂𝙰𝙿𝙿 𝙱𝙾𝚃!</b> {E_WELCOME}\n\n"
-        f"⚙️ <b>𝚃𝙶𝚂 𝚆𝙰 𝙽𝚄𝙼𝙱𝙴𝚁</b> {E_PHONE}"
+        f"⚙️ <b>𝚃𝙶𝚂 𝚆𝙰 𝙽𝚄𝙼𝙱𝙴𝚁</b> {E_PHONE} {E_WA}"
     )
     await update.message.reply_text(welcome_msg, parse_mode="HTML", reply_markup=get_main_keyboard(user_id))
 
@@ -286,11 +291,11 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
     u_data = get_or_create_user(user_id, update.effective_user.full_name)
 
     if u_data.get("is_banned", False):
-        await update.message.reply_text(f"{E_BAN} 𝙱𝙰𝙽 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽 𝙲𝙾𝙽𝚃𝙰𝙲𝚃 𝙰𝙳𝙼𝙸𝙽.", parse_mode="HTML")
+        await update.message.reply_text(f"{E_BAN} <b>𝙱𝙰𝙽 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽 𝙲𝙾𝙽𝚃𝙰𝙲𝚃 𝙰𝙳𝙼𝙸𝙽.</b>", parse_mode="HTML")
         return
 
     if not is_bot_active() and not is_admin(user_id):
-        await update.message.reply_text("🚧 <b>ʙᴏᴛ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴀɪɴɪɴɢ ʙʏ ᴀᴅᴍɪɴ.</b> ᴘʟᴇᴀsᴇ ᴛʀʏ sᴏᴍᴇ ᴛɪᴍᴇ.", parse_mode="HTML")
+        await update.message.reply_text(f"🚧 <b>ʙᴏᴛ ᴜɴᴅᴇʀ ᴍᴀɪɴᴛᴀɪɴɪɴɢ ʙʏ ᴀᴅᴍɪɴ.</b> {E_CANCEL} ᴘʟᴇᴀsᴇ ᴛʀʏ sᴏᴍᴇ ᴛɪᴍᴇ.", parse_mode="HTML")
         return
 
     if not is_subscribed(user_id):
@@ -298,8 +303,8 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("💳 5 Days (50 Tk)", callback_data="buy_sub_5")],
             [InlineKeyboardButton("💳 7 Days (70 Tk)", callback_data="buy_sub_7")]
         ])
-        await update.message.reply_text(f"{E_BAN} <b>SUBSCRIPTION EXPIRED! BUY NEW SUBSCRIPTION.</b>", parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
-        await update.message.reply_text("👇 <b>BUY SUBSCRIPTION:</b>", parse_mode="HTML", reply_markup=sub_kb)
+        await update.message.reply_text(f"{E_BAN} <b>SUBSCRIPTION EXPIRED! BUY NEW SUBSCRIPTION.</b> {E_SUB_EXP}", parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
+        await update.message.reply_text(f"👇 <b>BUY SUBSCRIPTION:</b> {E_PAY_SELECT}", parse_mode="HTML", reply_markup=sub_kb)
         return
 
     # User Buttons
@@ -310,21 +315,21 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if is_admin(user_id):
             site_bal = get_vak_balance()
             available_numbers = int(site_bal // 0.079) if site_bal > 0 else 0
-            msg += f"\n📊 <b>𝙰𝚅𝙰𝙸𝙻𝙰𝙱𝙻𝙴 𝙽𝚄𝙼𝙱𝙴𝚁𝚂 :</b> <code>{available_numbers}</code> Pcs"
+            msg += f"\n📊 <b>𝙰𝚅𝙰𝙸𝙻𝙰𝙱𝙻𝙴 𝙽𝚄𝙼𝙱𝙴𝚁𝚂 :</b> <code>{available_numbers}</code> Pcs {E_PHONE}"
             
         await update.message.reply_text(msg, parse_mode="HTML")
         return
 
     elif text == "🛒 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁":
         if user_id in active_orders:
-            await update.message.reply_text(f"{E_CANCEL} 𝚈𝙾𝚄 𝙰𝙻𝚁𝙴𝙰𝙳𝚈 𝙷𝙰𝚅𝙴 𝙰𝙽 𝙰𝙲𝚃𝙸𝚅𝙴 𝙽𝚄𝙼𝙱𝙴𝚁. 𝙲𝙰𝙽𝙲𝙴𝙻 𝙾𝚁 𝙵𝙸𝙽𝙸𝚂𝙷 𝙸𝚃 𝙵𝙸𝚁𝚂𝚃.", parse_mode="HTML")
+            await update.message.reply_text(f"{E_CANCEL} <b>𝚈𝙾𝚄 𝙰𝙻𝚁𝙴𝙰𝙳𝚈 𝙷𝙰𝚅𝙴 𝙰𝙽 𝙰𝙲𝚃𝙸𝚅𝙴 𝙽𝚄𝙼𝙱𝙴𝚁. 𝙲𝙰𝙽𝙲𝙴𝙻 𝙾𝚁 𝙵𝙸𝙽𝙸𝚂𝙷 𝙸𝚃 𝙵𝙸𝚁𝚂𝚃.</b>", parse_mode="HTML")
             return
 
         rate = get_rate()
         user_bal = u_data.get("balance", 0.0)
 
         if user_bal < rate:
-            await update.message.reply_text(f"{E_BAN} 𝙸𝙽𝚂𝚄𝙵𝙵𝙸𝙲𝙸𝙴𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴!\n⚡ 𝙽𝙴𝙴𝙳: <code>{rate:.2f}</code> USDT\n💰 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: <code>{user_bal:.4f}</code> USDT {E_BAL}", parse_mode="HTML")
+            await update.message.reply_text(f"{E_BAN} <b>𝙸𝙽𝚂𝚄𝙵𝙵𝙸𝙲𝙸𝙴𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴!</b>\n⚡ 𝙽𝙴𝙴𝙳: <code>{rate:.2f}</code> USDT {E_BAL}\n💰 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: <code>{user_bal:.4f}</code> USDT {E_BAL}", parse_mode="HTML")
             return
 
         await update.message.reply_text(f"⏳ <b>𝚆𝙰𝙸𝚃 𝙵𝙾𝚁 𝙽𝚄𝙼𝙱𝙴𝚁...</b> {E_WAIT_OTP}", parse_mode="HTML")
@@ -342,7 +347,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
 
         buying_msg = (
-            f"{E_UNBAN} <b>𝙽𝚄𝙼𝙱𝙴𝚁 𝙿𝚄𝚁𝙲𝙷𝙰𝚂𝙴𝙳!</b>\n\n"
+            f"{E_UNBAN} <b>𝙽𝚄𝙼𝙱𝙴𝚁 𝙿𝚄𝚁𝙲𝙷𝙰𝚂𝙴𝙳!</b> {E_CL}\n\n"
             f"📱 <b>𝙽𝚄𝙼𝙱𝙴𝚁:</b> <code>{phone_num}</code> {E_PHONE}\n"
             f"💰 <b>𝙿𝚁𝙸𝙲𝙴:</b> <code>{rate:.2f}</code> USDT {E_BAL}\n\n"
             f"⏳ <b>𝚆𝙰𝙸𝚃𝙸𝙽𝙶 𝙵𝙾𝚁 𝙾𝚃𝙿 (𝙰𝚄𝚃𝙾 𝙿𝙾𝙻𝙻𝙸𝙽𝙶)...</b> {E_WAIT_OTP}"
@@ -369,7 +374,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     await context.bot.edit_message_text(
                         chat_id=user_id,
                         message_id=msg_id,
-                        text=f"{E_CANCEL} <b>𝙽𝚄𝙼𝙱𝙴𝚁 𝙲𝙰𝙽𝙲𝙴𝙻𝙻𝙴𝙳 𝙳𝚄𝙴 𝚃𝙾 𝚃𝙸𝙼𝙴𝙾𝚄𝚃 (𝟻 𝙼𝙸𝙽):</b> <code>{phone_num}</code>",
+                        text=f"{E_CANCEL} <b>𝙽𝚄𝙼𝙱𝙴𝚁 𝙲𝙰𝙽𝙲𝙴𝙻𝙻𝙴𝙳 𝙳𝚄𝙴 𝚃𝙾 𝚃𝙸𝙼𝙴𝙾𝚄𝚃 (𝟻 𝙼𝙸𝙽):</b> <code>{phone_num}</code> {E_PHONE}",
                         parse_mode="HTML"
                     )
                 except Exception:
@@ -389,7 +394,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if order_info["cancel_task"]:
                         order_info["cancel_task"].cancel()
 
-                    # Deduct balance safely and increment OTP count
+                    # Deduct balance securely and increment OTP count
                     users_col.update_one(
                         {"user_id": user_id},
                         {
@@ -403,16 +408,15 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     set_number_status(id_num, "end")
                     del active_orders[user_id]
 
-                    # Fetch updated balance to display
                     updated_user_doc = get_user(user_id)
                     rem_bal = updated_user_doc.get("balance", 0.0) if updated_user_doc else 0.0
 
                     otp_msg = (
-                        f"{E_UNBAN} <b>𝙾𝚃𝙿 𝚁𝙴𝙲𝙴𝙸𝚅𝙴𝙳 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙻𝙻𝚈!</b>\n\n"
+                        f"{E_UNBAN} <b>𝙾𝚃𝙿 𝚁𝙴𝙲𝙴𝙸𝚅𝙴𝙳 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙻𝙻𝚈!</b> {E_WA}\n\n"
                         f"📱 <b>𝙽𝚄𝙼𝙱𝙴𝚁:</b> <code>{phone_num}</code> {E_PHONE}\n"
                         f"💬 <b>𝙾𝚃𝙿 𝙲𝙾𝙳𝙴:</b> <code>{otp_code}</code> {E_KEY_OTP}\n\n"
                         f"💰 <b>𝙳𝙴𝙳𝚄𝙲𝚃𝙴𝙳:</b> <code>{rate:.2f}</code> USDT {E_BAL}\n"
-                        f"💵 <b>𝚁𝙴𝙼𝙰𝙸𝙽𝙸𝙽𝙶 𝙱𝙰𝙻𝙰𝙽𝙲𝙴:</b> <code>{rem_bal:.4f}</code> USDT"
+                        f"💵 <b>𝚁𝙴𝙼𝙰𝙸𝙽𝙸𝙽𝙶 𝙱𝙰𝙻𝙰𝙽𝙲𝙴:</b> <code>{rem_bal:.4f}</code> USDT {E_BAL}"
                     )
                     
                     full_sms = sms_res.get("sms", "")
@@ -438,7 +442,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         try:
                             m_num = mask_number(phone_num)
                             group_text = (
-                                f"🎉 <b>𝙽𝙴𝚆 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙻 𝙾𝚃𝙿!</b> {E_WA}\n\n"
+                                f"🎉 <b>𝙽𝙴𝚆 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙻 𝙾𝚃𝙿!</b> {E_WA} {E_CL}\n\n"
                                 f"👤 <b>𝚄𝚂𝙴𝚁 ID:</b> <code>{user_id}</code> {E_ID}\n"
                                 f"📱 <b>𝙽𝚄𝙼𝙱𝙴𝚁:</b> <code>{m_num}</code> {E_PHONE}\n"
                                 f"💬 <b>𝙾𝚃𝙿 𝙲𝙾𝙳𝙴:</b> <code>{otp_code}</code> {E_KEY_OTP}"
@@ -471,7 +475,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         dep_kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("💛 BINANCE PAY", callback_data="pay_binance")]
         ])
-        await update.message.reply_text(f"💳 <b>SELECT DEPOSIT METHOD:</b> {E_PAY_SELECT}", parse_mode="HTML", reply_markup=dep_kb)
+        await update.message.reply_text(f"💳 <b>SELECT DEPOSIT METHOD:</b> {E_PAY_SELECT} {E_BINANCE}", parse_mode="HTML", reply_markup=dep_kb)
 
     elif text == "⚙️ 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻" and is_admin(user_id):
         curr_status = is_bot_active()
@@ -506,14 +510,14 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
             set_number_status(id_num, "bad")
             del active_orders[user_id]
 
-            await query.edit_message_text(f"{E_CANCEL} <b>𝙽𝚄𝙼𝙱𝙴𝚁 𝙲𝙰𝙽𝙲𝙴𝙻𝙻𝙴𝙳:</b> <code>{phone_num}</code>", parse_mode="HTML")
+            await query.edit_message_text(f"{E_CANCEL} <b>𝙽𝚄𝙼𝙱𝙴𝚁 𝙲𝙰𝙽𝙲𝙴𝙻𝙻𝙴𝙳:</b> <code>{phone_num}</code> {E_PHONE}", parse_mode="HTML")
         else:
             await query.edit_message_text(f"{E_CANCEL} <b>𝙽𝙾 𝙰𝙲𝚃𝙸𝚅𝙴 𝙽𝚄𝙼𝙱𝙴𝚁 𝚃𝙾 𝙲𝙰𝙽𝙲𝙴𝙻.</b>", parse_mode="HTML")
 
     elif data.startswith("copy_sms:"):
         target_uid = int(data.split(":")[1])
         sms_text = context.user_data.get(f"full_sms_{target_uid}", "No SMS Text Available")
-        await query.message.reply_text(f"📋 <b>𝙵𝚄𝙻𝙻 𝚂𝙼𝚂:</b>\n<code>{sms_text}</code>", parse_mode="HTML")
+        await query.message.reply_text(f"📋 <b>𝙵𝚄𝙻𝙻 𝚂𝙼𝚂:</b>\n<code>{sms_text}</code> {E_KEY_OTP}", parse_mode="HTML")
 
     elif is_admin(user_id):
         if data == "admin_toggle_bot":
@@ -539,14 +543,14 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
                 await query.message.reply_text("📋 <b>NO USERS FOUND.</b>", parse_mode="HTML")
                 return
 
-            text_msg = f"📊 <b>TOTAL BOT USERS:</b> <code>{total_users}</code>\n\n"
+            text_msg = f"📊 <b>TOTAL BOT USERS:</b> <code>{total_users}</code> {E_PROFILE_HEADER}\n\n"
             for u in all_users:
                 text_msg += (
-                    f"👤 <b>Name:</b> {u.get('full_name', 'N/A')}\n"
-                    f"🆔 <b>ID:</b> <code>{u.get('user_id')}</code>\n"
-                    f"💰 <b>Balance:</b> <code>{u.get('balance', 0.0):.4f}</code> USDT\n"
-                    f"📥 <b>OTP Bought:</b> <code>{u.get('otp_count', 0)}</code>\n"
-                    f"🚫 <b>Status:</b> {'Banned' if u.get('is_banned') else 'Active'}\n"
+                    f"👤 <b>Name:</b> {u.get('full_name', 'N/A')} {E_NAME}\n"
+                    f"🆔 <b>ID:</b> <code>{u.get('user_id')}</code> {E_ID}\n"
+                    f"💰 <b>Balance:</b> <code>{u.get('balance', 0.0):.4f}</code> USDT {E_BAL}\n"
+                    f"📥 <b>OTP Bought:</b> <code>{u.get('otp_count', 0)}</code> {E_OTP_RCV}\n"
+                    f"🚫 <b>Status:</b> {'Banned' if u.get('is_banned') else 'Active'} {E_UNBAN}\n"
                     f"----------------------------\n"
                 )
 
@@ -557,31 +561,31 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
                 await query.message.reply_text(text_msg, parse_mode="HTML")
 
         elif data == "admin_ban":
-            await query.message.reply_text("SEND USER ID TO BAN:")
+            await query.message.reply_text(f"{E_BAN} <b>SEND USER ID TO BAN:</b>", parse_mode="HTML")
             return ADMIN_BAN
 
         elif data == "admin_unban":
-            await query.message.reply_text("SEND USER ID TO UNBAN:")
+            await query.message.reply_text(f"{E_UNBAN} <b>SEND USER ID TO UNBAN:</b>", parse_mode="HTML")
             return ADMIN_UNBAN
 
         elif data == "admin_add_bal":
-            await query.message.reply_text("SEND USER ID TO ADD BALANCE:")
+            await query.message.reply_text(f"{E_BAL} <b>SEND USER ID TO ADD BALANCE:</b>", parse_mode="HTML")
             return ADMIN_ADD_BAL_USER
 
         elif data == "admin_zero_bal":
-            await query.message.reply_text("SEND USER ID TO ZERO BALANCE:")
+            await query.message.reply_text(f"{E_CANCEL} <b>SEND USER ID TO ZERO BALANCE:</b>", parse_mode="HTML")
             return ADMIN_ZERO_BAL_USER
 
         elif data == "admin_set_rate":
             curr_rate = get_rate()
-            await query.message.reply_text(f"CURRENT CHILE WA RATE IS: <code>{curr_rate}</code> USDT\nSEND NEW RATE FOR CHILE WA:", parse_mode="HTML")
+            await query.message.reply_text(f"💵 <b>CURRENT CHILE WA RATE IS:</b> <code>{curr_rate}</code> USDT\n<b>SEND NEW RATE FOR CHILE WA:</b>", parse_mode="HTML")
             return ADMIN_RATE_WA_CL_SET
 
         elif data == "admin_broadcast":
-            await query.message.reply_text("SEND BROADCAST MESSAGE TO ALL USERS:")
+            await query.message.reply_text(f"{E_ADMIN_HEADER} <b>SEND BROADCAST MESSAGE TO ALL USERS:</b>", parse_mode="HTML")
             return ADMIN_BROADCAST
 
-# Subscription Purchase Flow Handlers (Bangladesh Time Based)
+# Subscription Purchase Flow Handlers
 async def sub_start_5(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -590,10 +594,10 @@ async def sub_start_5(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_sub_flow")]])
     msg = (
-        f"💰 <b>PLAN:</b> 5 Days\n"
-        f"💰 <b>AMOUNT:</b> 50 Tk\n\n"
+        f"💰 <b>PLAN:</b> 5 Days {E_SUB_VALID}\n"
+        f"💰 <b>AMOUNT:</b> 50 Tk {E_BAL}\n\n"
         f"👇 <b>SEND BKASH PERSONAL NUMBER:</b>\n"
-        f"📱 <b>BKASH NUMBER:</b> <code>{ADMIN_BKASH}</code>\n\n"
+        f"📱 <b>BKASH NUMBER:</b> <code>{ADMIN_BKASH}</code> {E_PHONE}\n\n"
         f"Taka dewa sese apnar TrxID-ti likhe pathan:"
     )
     await query.message.reply_text(msg, parse_mode="HTML", reply_markup=cancel_kb)
@@ -607,10 +611,10 @@ async def sub_start_7(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_sub_flow")]])
     msg = (
-        f"💰 <b>PLAN:</b> 7 Days\n"
-        f"💰 <b>AMOUNT:</b> 70 Tk\n\n"
+        f"💰 <b>PLAN:</b> 7 Days {E_SUB_VALID}\n"
+        f"💰 <b>AMOUNT:</b> 70 Tk {E_BAL}\n\n"
         f"👇 <b>SEND BKASH PERSONAL NUMBER:</b>\n"
-        f"📱 <b>BKASH NUMBER:</b> <code>{ADMIN_BKASH}</code>\n\n"
+        f"📱 <b>BKASH NUMBER:</b> <code>{ADMIN_BKASH}</code> {E_PHONE}\n\n"
         f"Taka dewa sese apnar TrxID-ti likhe pathan:"
     )
     await query.message.reply_text(msg, parse_mode="HTML", reply_markup=cancel_kb)
@@ -620,7 +624,7 @@ async def sub_txid_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
     txid = update.message.text.strip()
     context.user_data["sub_txid"] = txid
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_sub_flow")]])
-    await update.message.reply_text("📸 <b>Ekhon apnar payment-er screenshot (Photo) Pathan:</b>", parse_mode="HTML", reply_markup=cancel_kb)
+    await update.message.reply_text(f"📸 <b>Ekhon apnar payment-er screenshot (Photo) Pathan:</b> {E_PROFILE_HEADER}", parse_mode="HTML", reply_markup=cancel_kb)
     return SUB_SCREENSHOT
 
 async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -639,12 +643,12 @@ async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_
     ])
 
     caption = (
-        f"🔔 <b>NEW SUBSCRIPTION REQUEST!</b>\n\n"
+        f"🔔 <b>NEW SUBSCRIPTION REQUEST!</b> {E_SUB_EXP}\n\n"
         f"👤 <b>USER:</b> {user.full_name} (<code>{user.id}</code>) {E_ID}\n"
-        f"💳 <b>METHOD:</b> BKASH\n"
+        f"💳 <b>METHOD:</b> BKASH {E_PAY_SELECT}\n"
         f"📅 <b>PLAN:</b> {days} Days {E_SUB_VALID}\n"
-        f"💰 <b>AMOUNT:</b> {price_str}\n"
-        f"🧾 <b>TrxID:</b> <code>{txid}</code>"
+        f"💰 <b>AMOUNT:</b> {price_str} {E_BAL}\n"
+        f"🧾 <b>TrxID:</b> <code>{txid}</code> {E_KEY_OTP}"
     )
 
     for admin_id in ADMIN_IDS:
@@ -653,7 +657,7 @@ async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_
         except Exception:
             pass
 
-    await update.message.reply_text("✅ Apnar subscription request admin-er kache pathano hoyeche! Admin approve korlei bot active hoye jaabe.")
+    await update.message.reply_text(f"{E_UNBAN} <b>Apnar subscription request admin-er kache pathano hoyeche!</b> Admin approve korlei bot active hoye jaabe.", parse_mode="HTML")
     return ConversationHandler.END
 
 async def cancel_sub_flow(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -677,10 +681,11 @@ async def deposit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         u_data = get_or_create_user(user_id, update.effective_user.full_name)
 
     if u_data.get("is_banned", False):
+        msg_text = f"{E_BAN} <b>𝙱𝙰𝙽 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽 𝙲𝙾𝙽𝚃𝙰𝙲𝚃 𝙰𝙳𝙼𝙸𝙽.</b>"
         if query:
-            await query.message.reply_text(f"{E_BAN} 𝙱𝙰𝙽 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽 𝙲𝙾𝙽𝚃𝙰𝙲𝚃 𝙰𝙳𝙼𝙸𝙽.", parse_mode="HTML")
+            await query.message.reply_text(msg_text, parse_mode="HTML")
         else:
-            await update.message.reply_text(f"{E_BAN} 𝙱𝙰𝙽 𝙱𝚈 𝙰𝙳𝙼𝙸𝙽 𝙲𝙾𝙽𝚃𝙰𝙲𝚃 𝙰𝙳𝙼𝙸𝙽.", parse_mode="HTML")
+            await update.message.reply_text(msg_text, parse_mode="HTML")
         return ConversationHandler.END
 
     cancel_kb = InlineKeyboardMarkup([
@@ -690,7 +695,7 @@ async def deposit_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     dep_msg = (
         f"💵 <b>𝙳𝙴𝙿𝙾𝚂𝙸𝚃 𝚅𝙸𝙰 𝙱𝙸𝙽𝙰𝙽𝙲𝙴 𝙿𝙰𝚈</b> {E_BINANCE}\n\n"
         f"🆔 <b>𝙱𝙸𝙽𝙰𝙽𝙲𝙴 𝙿𝙰𝚈 ID:</b> <code>{BINANCE_ID}</code> {E_ID}\n"
-        f"⚠️ <b>𝙼𝙸𝙽𝙸𝙼𝚄𝙼 𝙳𝙴𝙿𝙾𝚂𝙸𝚃:</b> <code>$0.11</code> USDT\n\n"
+        f"⚠️ <b>𝙼𝙸𝙽𝙸𝙼𝚄𝙼 𝙳𝙴𝙿𝙾𝚂𝙸𝚃:</b> <code>$0.11</code> USDT {E_BAL}\n\n"
         f"✍️ <b>𝚂𝙴𝙽𝙳 𝚃𝙷𝙴 𝙰𝙼𝙾𝚄𝙽𝚃 (𝚄𝚂𝙳𝚃) 𝚈𝙾𝚄 𝙷𝙰𝚅𝙴 𝚂𝙴𝙽𝚃:</b>"
     )
     if query:
@@ -708,14 +713,14 @@ async def deposit_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         amount = float(text)
         if amount < 0.11:
-            await update.message.reply_text("❌ <b>MINIMUM DEPOSIT IS $0.11 USDT!</b>\nPlease enter an amount equal to or greater than $0.11:", parse_mode="HTML", reply_markup=cancel_kb)
+            await update.message.reply_text(f"{E_CANCEL} <b>MINIMUM DEPOSIT IS $0.11 USDT!</b>\nPlease enter an amount equal to or greater than $0.11:", parse_mode="HTML", reply_markup=cancel_kb)
             return WAITING_AMOUNT
 
         context.user_data["dep_amount"] = amount
-        await update.message.reply_text("📥 <b>𝚂𝙴𝙽𝙳 𝚈𝙾𝚄𝚁 𝙱𝙸𝙽𝙰𝙽𝙲𝙴 𝙿𝙰𝚈 𝚃𝚇𝙸𝙳 / 𝙾𝚁𝙳𝙴𝚁 ID:</b>", parse_mode="HTML", reply_markup=cancel_kb)
+        await update.message.reply_text(f"📥 <b>𝚂𝙴𝙽𝙳 𝚈𝙾𝚄𝚁 𝙱𝙸𝙽𝙰𝙽𝙲𝙴 𝙿𝙰𝚈 𝚃𝚇𝙸𝙳 / 𝙾𝚁𝙳𝙴𝚁 ID:</b> {E_KEY_OTP}", parse_mode="HTML", reply_markup=cancel_kb)
         return WAITING_TXID
     except ValueError:
-        await update.message.reply_text("❌ INVALID AMOUNT. PLEASE ENTER A NUMBER (E.G. 0.50):", parse_mode="HTML", reply_markup=cancel_kb)
+        await update.message.reply_text(f"{E_CANCEL} <b>INVALID AMOUNT. PLEASE ENTER A NUMBER (E.G. 0.50):</b>", parse_mode="HTML", reply_markup=cancel_kb)
         return WAITING_AMOUNT
 
 async def deposit_txid(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -724,7 +729,7 @@ async def deposit_txid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     cancel_kb = InlineKeyboardMarkup([
         [InlineKeyboardButton("❌ CANCEL DEPOSIT", callback_data="cancel_deposit")]
     ])
-    await update.message.reply_text("📸 <b>𝚂𝙴𝙽𝙳 𝙰 𝚂𝙲𝚁𝙴𝙴𝙽𝚂𝙷𝙾𝚃 𝙾𝙵 𝚃𝙷𝙴 𝙿𝙰𝚈𝙼𝙴𝙽𝚃:</b>", parse_mode="HTML", reply_markup=cancel_kb)
+    await update.message.reply_text(f"📸 <b>𝚂𝙴𝙽𝙳 𝙰 𝚂𝙲𝚁𝙴𝙴𝙽𝚂𝙷𝙾𝚃 𝙾𝙵 𝚃𝙷𝙴 𝙿𝙰𝚈𝙼𝙴𝙽𝚃:</b> {E_PROFILE_HEADER}", parse_mode="HTML", reply_markup=cancel_kb)
     return WAITING_SCREENSHOT
 
 async def deposit_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -744,10 +749,10 @@ async def deposit_screenshot(update: Update, context: ContextTypes.DEFAULT_TYPE)
     for admin_id in ADMIN_IDS:
         try:
             admin_msg = (
-                f"📥 <b>𝙽𝙴𝚆 𝙳𝙴𝙿𝙾𝚂𝙸𝚃 𝚁𝙴𝚀𝚄𝙴𝚂𝚃!</b>\n\n"
+                f"📥 <b>𝙽𝙴𝚆 𝙳𝙴𝙿𝙾𝚂𝙸𝚃 𝚁𝙴𝚀𝚄𝙴𝚂𝚃!</b> {E_BINANCE}\n\n"
                 f"👤 <b>𝚄𝚂𝙴𝚁:</b> {user.full_name} (<code>{user_id}</code>) {E_ID}\n"
                 f"💰 <b>𝙰𝙼𝙾𝚄𝙽𝚃:</b> <code>${amount:.2f}</code> USDT {E_BAL}\n"
-                f"🆔 <b>𝚃𝚇𝙸𝙳:</b> <code>{txid}</code>"
+                f"🆔 <b>𝚃𝚇𝙸𝙳:</b> <code>{txid}</code> {E_KEY_OTP}"
             )
             approve_kb = InlineKeyboardMarkup([
                 [
@@ -788,28 +793,28 @@ async def admin_ban_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         target_id = int(update.message.text)
         users_col.update_one({"user_id": target_id}, {"$set": {"is_banned": True}})
-        await update.message.reply_text(f"{E_UNBAN} USER <code>{target_id}</code> HAS BEEN BANNED.", parse_mode="HTML")
+        await update.message.reply_text(f"{E_UNBAN} <b>USER <code>{target_id}</code> HAS BEEN BANNED.</b>", parse_mode="HTML")
     except ValueError:
-        await update.message.reply_text("❌ INVALID USER ID.")
+        await update.message.reply_text(f"{E_CANCEL} <b>❌ INVALID USER ID.</b>", parse_mode="HTML")
     return ConversationHandler.END
 
 async def admin_unban_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         target_id = int(update.message.text)
         users_col.update_one({"user_id": target_id}, {"$set": {"is_banned": False}})
-        await update.message.reply_text(f"{E_UNBAN} USER <code>{target_id}</code> HAS BEEN UNBANNED.", parse_mode="HTML")
+        await update.message.reply_text(f"{E_UNBAN} <b>USER <code>{target_id}</code> HAS BEEN UNBANNED.</b>", parse_mode="HTML")
     except ValueError:
-        await update.message.reply_text("❌ INVALID USER ID.")
+        await update.message.reply_text(f"{E_CANCEL} <b>❌ INVALID USER ID.</b>", parse_mode="HTML")
     return ConversationHandler.END
 
 async def admin_add_bal_user_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         target_id = int(update.message.text)
         context.user_data["target_user_id"] = target_id
-        await update.message.reply_text("SEND AMOUNT TO ADD:")
+        await update.message.reply_text(f"{E_BAL} <b>SEND AMOUNT TO ADD:</b>", parse_mode="HTML")
         return ADMIN_ADD_BAL_AMT
     except ValueError:
-        await update.message.reply_text("❌ INVALID USER ID.")
+        await update.message.reply_text(f"{E_CANCEL} <b>❌ INVALID USER ID.</b>", parse_mode="HTML")
         return ConversationHandler.END
 
 async def admin_add_bal_amt_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -817,31 +822,31 @@ async def admin_add_bal_amt_process(update: Update, context: ContextTypes.DEFAUL
         amt = float(update.message.text)
         target_id = context.user_data.get("target_user_id")
         users_col.update_one({"user_id": target_id}, {"$inc": {"balance": amt}})
-        await update.message.reply_text(f"{E_UNBAN} ADDED <code>${amt:.2f}</code> USDT TO USER <code>{target_id}</code>.", parse_mode="HTML")
+        await update.message.reply_text(f"{E_UNBAN} <b>ADDED <code>${amt:.2f}</code> USDT TO USER <code>{target_id}</code>.</b> {E_BAL}", parse_mode="HTML")
         try:
-            await context.bot.send_message(target_id, f"🎉 <b>𝙰𝚙𝚗𝚊𝚛 <code>${amt:.2f}</code> USDT 𝚍𝚎𝚙𝚘𝚜𝚒𝚝 𝚜𝚑𝚘𝚏𝚘𝚕𝚋𝚑𝚊𝚋𝚎 𝚓𝚞𝚔𝚝𝚘 𝚔𝚘𝚛𝚊 𝚑𝚘𝚢𝚎𝚌𝚑𝚎!</b>", parse_mode="HTML")
+            await context.bot.send_message(target_id, f"🎉 <b>𝙰𝚙𝚗𝚊𝚛 <code>${amt:.2f}</code> USDT 𝚍𝚎𝚙𝚘𝚜𝚒𝚝 𝚜𝚑𝚘𝚏𝚘𝚕𝚋𝚑𝚊𝚋𝚎 𝚓𝚞𝚔𝚝𝚘 𝚔𝚘𝚛𝚊 𝚑𝚘𝚢𝚎𝚌𝚑𝚎!</b> {E_BAL}", parse_mode="HTML")
         except Exception:
             pass
     except ValueError:
-        await update.message.reply_text("❌ INVALID AMOUNT.")
+        await update.message.reply_text(f"{E_CANCEL} <b>❌ INVALID AMOUNT.</b>", parse_mode="HTML")
     return ConversationHandler.END
 
 async def admin_zero_bal_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         target_id = int(update.message.text)
         users_col.update_one({"user_id": target_id}, {"$set": {"balance": 0.0}})
-        await update.message.reply_text(f"{E_UNBAN} BALANCE ZEROED FOR USER <code>{target_id}</code>.", parse_mode="HTML")
+        await update.message.reply_text(f"{E_UNBAN} <b>BALANCE ZEROED FOR USER <code>{target_id}</code>.</b> {E_BAL}", parse_mode="HTML")
     except ValueError:
-        await update.message.reply_text("❌ INVALID USER ID.")
+        await update.message.reply_text(f"{E_CANCEL} <b>❌ INVALID USER ID.</b>", parse_mode="HTML")
     return ConversationHandler.END
 
 async def admin_set_rate_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         new_rate = float(update.message.text)
         set_rate(new_rate)
-        await update.message.reply_text(f"{E_UNBAN} CHILE WA RATE UPDATED TO: <code>{new_rate}</code> USDT", parse_mode="HTML")
+        await update.message.reply_text(f"{E_UNBAN} <b>CHILE WA RATE UPDATED TO:</b> <code>{new_rate}</code> USDT {E_BAL}", parse_mode="HTML")
     except ValueError:
-        await update.message.reply_text("❌ INVALID RATE AMOUNT.")
+        await update.message.reply_text(f"{E_CANCEL} <b>❌ INVALID RATE AMOUNT.</b>", parse_mode="HTML")
     return ConversationHandler.END
 
 async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -855,7 +860,7 @@ async def admin_broadcast_process(update: Update, context: ContextTypes.DEFAULT_
             await asyncio.sleep(0.05)
         except Exception:
             pass
-    await update.message.reply_text(f"📢 BROADCAST SENT TO {count} USERS.")
+    await update.message.reply_text(f"📢 <b>BROADCAST SENT TO <code>{count}</code> USERS.</b> {E_WELCOME}", parse_mode="HTML")
     return ConversationHandler.END
 
 async def admin_deposit_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -874,7 +879,7 @@ async def admin_deposit_callback(update: Update, context: ContextTypes.DEFAULT_T
 
     dep_doc = deposits_col.find_one({"dep_id": dep_id})
     if not dep_doc or dep_doc.get("status") != "PENDING":
-        await query.message.reply_text("⚠️ <b>THIS DEPOSIT REQUEST WAS ALREADY PROCESSED.</b>", parse_mode="HTML")
+        await query.message.reply_text(f"⚠️ <b>THIS DEPOSIT REQUEST WAS ALREADY PROCESSED.</b> {E_CANCEL}", parse_mode="HTML")
         return
 
     admin_messages = dep_doc.get("admin_messages", [])
@@ -889,14 +894,14 @@ async def admin_deposit_callback(update: Update, context: ContextTypes.DEFAULT_T
                 await context.bot.edit_message_caption(
                     chat_id=amsg["chat_id"],
                     message_id=amsg["message_id"],
-                    caption=f"{query.message.caption}\n\n✅ <b>APPROVED BY ADMIN</b>",
+                    caption=f"{query.message.caption}\n\n✅ <b>APPROVED BY ADMIN</b> {E_UNBAN}",
                     parse_mode="HTML"
                 )
             except Exception as e:
                 logging.error(f"Failed to sync approve status to admin {amsg['chat_id']}: {e}")
 
         try:
-            await context.bot.send_message(target_uid, f"🎉 <b>𝙰𝚙𝚗𝚊𝚛 <code>${amt:.2f}</code> USDT 𝚍𝚎𝚙𝚘𝚜𝚒𝚝 𝚜𝚑𝚘𝚏𝚘𝚕𝚋𝚑𝚊𝚋𝚎 𝚓𝚞𝚔𝚝𝚘 𝚔𝚘𝚛𝚊 𝚑𝚘𝚢𝚎𝚌𝚑𝚎!</b>", parse_mode="HTML")
+            await context.bot.send_message(target_uid, f"🎉 <b>𝙰𝚙𝚗𝚊𝚛 <code>${amt:.2f}</code> USDT 𝚍𝚎𝚙𝚘𝚜𝚒𝚝 𝚜𝚑𝚘𝚏𝚘𝚕𝚋𝚑𝚊𝚋𝚎 𝚓𝚞𝚔𝚝𝚘 𝚔𝚘𝚛𝚊 𝚑𝚘𝚢𝚎𝚌𝚑𝚎!</b> {E_BAL}", parse_mode="HTML")
         except Exception:
             pass
 
@@ -908,18 +913,18 @@ async def admin_deposit_callback(update: Update, context: ContextTypes.DEFAULT_T
                 await context.bot.edit_message_caption(
                     chat_id=amsg["chat_id"],
                     message_id=amsg["message_id"],
-                    caption=f"{query.message.caption}\n\n❌ <b>REJECTED BY ADMIN</b>",
+                    caption=f"{query.message.caption}\n\n❌ <b>REJECTED BY ADMIN</b> {E_CANCEL}",
                     parse_mode="HTML"
                 )
             except Exception as e:
                 logging.error(f"Failed to sync reject status to admin {amsg['chat_id']}: {e}")
 
         try:
-            await context.bot.send_message(target_uid, "❌ <b>𝙰𝚙𝚗𝚊𝚛 𝚍𝚎𝚙𝚘𝚜𝚒𝚝 𝚛𝚎𝚀𝚞𝚎𝚜𝚝 𝚝𝚒 𝚛𝚎𝚓𝚎𝚌𝚝 𝚔𝚘𝚛𝚊 𝚑𝚘𝚢𝚎𝚌𝚑𝚎!</b>", parse_mode="HTML")
+            await context.bot.send_message(target_uid, f"❌ <b>𝙰𝚙𝚗𝚊𝚛 𝚍𝚎𝚙𝚘𝚜𝚒𝚝 𝚛𝚎𝚀𝚞𝚎𝚜𝚝 𝚝𝚒 𝚛𝚎𝚓𝚎𝚌𝚝 𝚔𝚘𝚛𝚊 𝚑𝚘𝚢𝚎𝚌𝚑𝚎!</b> {E_CANCEL}", parse_mode="HTML")
         except Exception:
             pass
 
-# Subscription Admin Approval Callbacks (Bangladesh Time Nikhut Expiry)
+# Subscription Admin Approval Callbacks
 async def handle_sub_approval_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -934,7 +939,6 @@ async def handle_sub_approval_callbacks(update: Update, context: ContextTypes.DE
         user_doc = users_col.find_one({"user_id": target_id})
         days = user_doc.get("sub_days", 5) if user_doc else 5
         
-        # Calculate expiry based on Bangladesh Time (BD Time + Days)
         expiry_date = get_bd_time().replace(tzinfo=None) + timedelta(days=days)
         users_col.update_one({"user_id": target_id}, {"$set": {"subscription_expiry": expiry_date}})
         
@@ -948,7 +952,7 @@ async def handle_sub_approval_callbacks(update: Update, context: ContextTypes.DE
         try:
             await context.bot.send_message(
                 chat_id=target_id,
-                text=f"🎉 <b>Apnar Subscription Approved hoyeche!</b> {days} Diner jonno bot-er sob features active kora hoyeche.\n📅 Valid till: <code>{exp_str}</code> (BD Time)",
+                text=f"🎉 <b>Apnar Subscription Approved hoyeche!</b> {days} Diner jonno bot-er sob features active kora hoyeche.\n📅 Valid till: <code>{exp_str}</code> (BD Time) {E_SUB_VALID}",
                 parse_mode="HTML",
                 reply_markup=get_main_keyboard(target_id)
             )
@@ -962,7 +966,7 @@ async def handle_sub_approval_callbacks(update: Update, context: ContextTypes.DE
         except Exception:
             pass
         try:
-            await context.bot.send_message(chat_id=target_id, text="❌ <b>Apnar subscription request-ti batil kora hoyeche.</b>", parse_mode="HTML")
+            await context.bot.send_message(chat_id=target_id, text=f"❌ <b>Apnar subscription request-ti batil kora hoyeche.</b> {E_CANCEL}", parse_mode="HTML")
         except Exception:
             pass
 
@@ -1016,7 +1020,7 @@ def main():
         ],
         states={
             ADMIN_BAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_ban_process)],
-            ADMIN_UNBAN: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_unban_process)],
+            ADMIN_UNban: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_unban_process)],
             ADMIN_ADD_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_user_process)],
             ADMIN_ADD_BAL_AMT: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_amt_process)],
             ADMIN_ZERO_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_zero_bal_process)],
