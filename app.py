@@ -46,7 +46,6 @@ ADMIN_IDS = [int(x.strip()) for x in ADMIN_IDS_RAW.split(",") if x.strip().isdig
 
 OTP_GROUP_ID = os.getenv("OTP_GROUP_ID")
 BINANCE_ID = os.getenv("BINANCE_ID", "1102671249")
-ADMIN_BKASH = "01738835415"
 MONGODB_URI = os.getenv("MONGODB_URI")
 
 # MongoDB Setup
@@ -203,9 +202,6 @@ def set_number_status(id_num: str, status: str):
         return {"error": str(e)}
 
 async def set_number_status_safe(id_num: str, status: str, retries: int = 3):
-    """
-    একসাথে অনেক ক্যানসেল রিকোয়েস্ট আসলেও যেন VAK-SMS ওয়েবসাইটে ক্যানসেল মিস না হয়।
-    """
     for attempt in range(retries):
         res = await asyncio.to_thread(set_number_status, id_num, status)
         if isinstance(res, dict) and "error" not in res:
@@ -269,16 +265,16 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not is_subscribed(user_id):
         sub_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💳 5 Days (50 Tk)", callback_data="buy_sub_5")],
-            [InlineKeyboardButton("💳 7 Days (70 Tk)", callback_data="buy_sub_7")]
+            [InlineKeyboardButton("💛 5 Days (0.50 USDT)", callback_data="buy_sub_5")],
+            [InlineKeyboardButton("💛 7 Days (0.70 USDT)", callback_data="buy_sub_7")]
         ])
         msg = (
             f"👋 Hello {user.full_name}!\n\n"
             f"{E_BAN} <b>YOU DO NOT HAVE AN ACTIVE SUBSCRIPTION!</b> {E_SUB_EXP}\n"
             f"Bot bebohar korte chaile subscription nite hobe.\n\n"
-            f"📌 PRICE & VALIDITY:\n"
-            f"• 5 Days = 50 Tk\n"
-            f"• 7 Days = 70 Tk\n\n"
+            f"📌 PRICE & VALIDITY (Binance Pay):\n"
+            f"• 5 Days = 0.50 USDT\n"
+            f"• 7 Days = 0.70 USDT\n\n"
             f"Nicher button-e click kore subscription kinun:"
         )
         await update.message.reply_text(msg, parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
@@ -306,8 +302,8 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not is_subscribed(user_id):
         sub_kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("💳 5 Days (50 Tk)", callback_data="buy_sub_5")],
-            [InlineKeyboardButton("💳 7 Days (70 Tk)", callback_data="buy_sub_7")]
+            [InlineKeyboardButton("💛 5 Days (0.50 USDT)", callback_data="buy_sub_5")],
+            [InlineKeyboardButton("💛 7 Days (0.70 USDT)", callback_data="buy_sub_7")]
         ])
         await update.message.reply_text(f"{E_BAN} <b>SUBSCRIPTION EXPIRED! BUY NEW SUBSCRIPTION.</b>", parse_mode="HTML", reply_markup=ReplyKeyboardRemove())
         await update.message.reply_text("👇 <b>BUY SUBSCRIPTION:</b>", parse_mode="HTML", reply_markup=sub_kb)
@@ -370,14 +366,12 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "poll_task": None
         }
 
-        # ------------------- ৩ মিনিট অটো-ক্যানসেল লজিক -------------------
         async def auto_cancel():
-            await asyncio.sleep(180)  # ৩ মিনিট (১৮০ সেকেন্ড)
+            await asyncio.sleep(180)  # ৩ মিনিট
             if user_id in active_orders and active_orders[user_id]["status"] == "WAITING_OTP":
                 order_info = active_orders[user_id]
                 msg_id = order_info["message_id"]
                 
-                # ওয়েবসাইট থেকে নাম্বার নিরাপদভাবে বাতিল করা
                 await set_number_status_safe(id_num, "bad")
                 
                 if user_id in active_orders:
@@ -407,7 +401,6 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if order_info["cancel_task"]:
                         order_info["cancel_task"].cancel()
 
-                    # Deduct balance safely and increment OTP count
                     users_col.update_one(
                         {"user_id": user_id},
                         {
@@ -498,6 +491,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🚫 BAN USER", callback_data="admin_ban"), InlineKeyboardButton("✅ UNBAN USER", callback_data="admin_unban")],
             [InlineKeyboardButton("➕ ADD BALANCE", callback_data="admin_add_bal"), InlineKeyboardButton("🧹 ZERO BALANCE", callback_data="admin_zero_bal")],
             [InlineKeyboardButton("📊 VIEW USERS", callback_data="admin_view_users"), InlineKeyboardButton("⚙️ SET RATE", callback_data="admin_set_rate")],
+            [InlineKeyboardButton("💥 RESET ALL SUBSCRIPTIONS", callback_data="admin_reset_all_subs")],
             [InlineKeyboardButton(f"🤖 BOT STATUS: {status_text}", callback_data="admin_toggle_bot")],
             [InlineKeyboardButton("📢 BROADCAST", callback_data="admin_broadcast")]
         ])
@@ -509,7 +503,6 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
     data = query.data
     user_id = query.from_user.id
 
-    # ------------------- ম্যানুয়াল ক্যানসেল লজিক -------------------
     if data == "cancel_number":
         if user_id in active_orders:
             order = active_orders[user_id]
@@ -521,7 +514,6 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
             if order["poll_task"]:
                 order["poll_task"].cancel()
 
-            # ব্যাকগ্রাউন্ডে নিশ্চিত ক্যানসেল রিকোয়েস্ট পাঠানো
             asyncio.create_task(set_number_status_safe(id_num, "bad"))
             del active_orders[user_id]
 
@@ -545,10 +537,16 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
                 [InlineKeyboardButton("🚫 BAN USER", callback_data="admin_ban"), InlineKeyboardButton("✅ UNBAN USER", callback_data="admin_unban")],
                 [InlineKeyboardButton("➕ ADD BALANCE", callback_data="admin_add_bal"), InlineKeyboardButton("🧹 ZERO BALANCE", callback_data="admin_zero_bal")],
                 [InlineKeyboardButton("📊 VIEW USERS", callback_data="admin_view_users"), InlineKeyboardButton("⚙️ SET RATE", callback_data="admin_set_rate")],
+                [InlineKeyboardButton("💥 RESET ALL SUBSCRIPTIONS", callback_data="admin_reset_all_subs")],
                 [InlineKeyboardButton(f"🤖 BOT STATUS: {status_text}", callback_data="admin_toggle_bot")],
                 [InlineKeyboardButton("📢 BROADCAST", callback_data="admin_broadcast")]
             ])
             await query.edit_message_reply_markup(reply_markup=admin_kb)
+
+        # সব ইউজারের সাবস্ক্রিপশন রিসেট করার অপশন
+        elif data == "admin_reset_all_subs":
+            users_col.update_many({}, {"$set": {"subscription_expiry": None}})
+            await query.message.reply_text("💥 <b>SUCCESS! ALL USERS' SUBSCRIPTIONS HAVE BEEN RESET/CANCELLED.</b>\nNow all regular users will be asked to buy a subscription when they start or use the bot.", parse_mode="HTML")
 
         elif data == "admin_view_users":
             all_users = list(users_col.find({}))
@@ -600,7 +598,7 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
             await query.message.reply_text("SEND BROADCAST MESSAGE TO ALL USERS:")
             return ADMIN_BROADCAST
 
-# Subscription Purchase Flow Handlers (Bangladesh Time Based)
+# Subscription Purchase Flow Handlers (Binance Pay Based)
 async def sub_start_5(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -609,11 +607,11 @@ async def sub_start_5(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_sub_flow")]])
     msg = (
-        f"💰 <b>PLAN:</b> 5 Days\n"
-        f"💰 <b>AMOUNT:</b> 50 Tk\n\n"
-        f"👇 <b>SEND BKASH PERSONAL NUMBER:</b>\n"
-        f"📱 <b>BKASH NUMBER:</b> <code>{ADMIN_BKASH}</code>\n\n"
-        f"Taka dewa sese apnar TrxID-ti likhe pathan:"
+        f"💛 <b>SUBSCRIPTION PLAN:</b> 5 Days\n"
+        f"💰 <b>AMOUNT:</b> 0.50 USDT\n\n"
+        f"👇 <b>SEND PAYMENT VIA BINANCE PAY:</b>\n"
+        f"🆔 <b>BINANCE PAY ID:</b> <code>{BINANCE_ID}</code> {E_ID}\n\n"
+        f"Payment kora sese apnar TrxID / Order ID-ti likhe pathan:"
     )
     await query.message.reply_text(msg, parse_mode="HTML", reply_markup=cancel_kb)
     return SUB_TXID
@@ -626,11 +624,11 @@ async def sub_start_7(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     cancel_kb = InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data="cancel_sub_flow")]])
     msg = (
-        f"💰 <b>PLAN:</b> 7 Days\n"
-        f"💰 <b>AMOUNT:</b> 70 Tk\n\n"
-        f"👇 <b>SEND BKASH PERSONAL NUMBER:</b>\n"
-        f"📱 <b>BKASH NUMBER:</b> <code>{ADMIN_BKASH}</code>\n\n"
-        f"Taka dewa sese apnar TrxID-ti likhe pathan:"
+        f"💛 <b>SUBSCRIPTION PLAN:</b> 7 Days\n"
+        f"💰 <b>AMOUNT:</b> 0.70 USDT\n\n"
+        f"👇 <b>SEND PAYMENT VIA BINANCE PAY:</b>\n"
+        f"🆔 <b>BINANCE PAY ID:</b> <code>{BINANCE_ID}</code> {E_ID}\n\n"
+        f"Payment kora sese apnar TrxID / Order ID-ti likhe pathan:"
     )
     await query.message.reply_text(msg, parse_mode="HTML", reply_markup=cancel_kb)
     return SUB_TXID
@@ -648,7 +646,7 @@ async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_
     txid = context.user_data.get("sub_txid")
     user_doc = users_col.find_one({"user_id": user.id})
     days = user_doc.get("sub_days", 5) if user_doc else 5
-    price_str = f"{50 if days == 5 else 70} Tk"
+    price_str = f"{0.50 if days == 5 else 0.70} USDT"
 
     admin_kb = InlineKeyboardMarkup([
         [
@@ -658,9 +656,9 @@ async def sub_screenshot_received(update: Update, context: ContextTypes.DEFAULT_
     ])
 
     caption = (
-        f"🔔 <b>NEW SUBSCRIPTION REQUEST!</b>\n\n"
+        f"🔔 <b>NEW SUBSCRIPTION REQUEST (BINANCE)!</b>\n\n"
         f"👤 <b>USER:</b> {user.full_name} (<code>{user.id}</code>) {E_ID}\n"
-        f"💳 <b>METHOD:</b> BKASH\n"
+        f"💳 <b>METHOD:</b> BINANCE PAY\n"
         f"📅 <b>PLAN:</b> {days} Days {E_SUB_VALID}\n"
         f"💰 <b>AMOUNT:</b> {price_str}\n"
         f"🧾 <b>TrxID:</b> <code>{txid}</code>"
@@ -938,7 +936,7 @@ async def admin_deposit_callback(update: Update, context: ContextTypes.DEFAULT_T
         except Exception:
             pass
 
-# Subscription Admin Approval Callbacks (Bangladesh Time Nikhut Expiry)
+# Subscription Admin Approval Callbacks
 async def handle_sub_approval_callbacks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -953,7 +951,6 @@ async def handle_sub_approval_callbacks(update: Update, context: ContextTypes.DE
         user_doc = users_col.find_one({"user_id": target_id})
         days = user_doc.get("sub_days", 5) if user_doc else 5
         
-        # Calculate expiry based on Bangladesh Time (BD Time + Days)
         expiry_date = get_bd_time().replace(tzinfo=None) + timedelta(days=days)
         users_col.update_one({"user_id": target_id}, {"$set": {"subscription_expiry": expiry_date}})
         
