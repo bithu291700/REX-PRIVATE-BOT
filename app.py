@@ -490,6 +490,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         admin_kb = InlineKeyboardMarkup([
             [InlineKeyboardButton("🚫 BAN USER", callback_data="admin_ban"), InlineKeyboardButton("✅ UNBAN USER", callback_data="admin_unban")],
             [InlineKeyboardButton("➕ ADD BALANCE", callback_data="admin_add_bal"), InlineKeyboardButton("🧹 ZERO BALANCE", callback_data="admin_zero_bal")],
+            [InlineKeyboardButton("🧹 ZERO ALL BALANCES", callback_data="admin_zero_all_bal")],
             [InlineKeyboardButton("📊 VIEW USERS", callback_data="admin_view_users"), InlineKeyboardButton("⚙️ SET RATE", callback_data="admin_set_rate")],
             [InlineKeyboardButton("💥 RESET ALL SUBSCRIPTIONS", callback_data="admin_reset_all_subs")],
             [InlineKeyboardButton(f"🤖 BOT STATUS: {status_text}", callback_data="admin_toggle_bot")],
@@ -536,12 +537,18 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
             admin_kb = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🚫 BAN USER", callback_data="admin_ban"), InlineKeyboardButton("✅ UNBAN USER", callback_data="admin_unban")],
                 [InlineKeyboardButton("➕ ADD BALANCE", callback_data="admin_add_bal"), InlineKeyboardButton("🧹 ZERO BALANCE", callback_data="admin_zero_bal")],
+                [InlineKeyboardButton("🧹 ZERO ALL BALANCES", callback_data="admin_zero_all_bal")],
                 [InlineKeyboardButton("📊 VIEW USERS", callback_data="admin_view_users"), InlineKeyboardButton("⚙️ SET RATE", callback_data="admin_set_rate")],
                 [InlineKeyboardButton("💥 RESET ALL SUBSCRIPTIONS", callback_data="admin_reset_all_subs")],
                 [InlineKeyboardButton(f"🤖 BOT STATUS: {status_text}", callback_data="admin_toggle_bot")],
                 [InlineKeyboardButton("📢 BROADCAST", callback_data="admin_broadcast")]
             ])
             await query.edit_message_reply_markup(reply_markup=admin_kb)
+
+        # সব ইউজারের ব্যালেন্স ০.০০ করার নতুন অপশন
+        elif data == "admin_zero_all_bal":
+            users_col.update_many({}, {"$set": {"balance": 0.0}})
+            await query.message.reply_text("🧹 <b>SUCCESS! ALL USERS' BALANCES HAVE BEEN RESET TO 0.00 USDT.</b>", parse_mode="HTML")
 
         # সব ইউজারের সাবস্ক্রিপশন রিসেট করার অপশন
         elif data == "admin_reset_all_subs":
