@@ -57,6 +57,7 @@ db = client["chile_wa_bot_db"]
 users_col = db["users"]
 settings_col = db["settings"]
 deposits_col = db["pending_deposits"]
+stats_col = db["daily_stats"]
 
 # Helper Emoji Generator Function (Telegram Custom Emojis)
 def emoji(emoji_id: str, fallback: str = "✨") -> str:
@@ -64,6 +65,7 @@ def emoji(emoji_id: str, fallback: str = "✨") -> str:
 
 # Premium Emoji Mapping
 E_CL = emoji("5222350726340032308", "🇨🇱")
+E_HK = emoji("5292166459118606932", "🇭🇰")
 E_WA = emoji("5334759662677957452", "💬")
 E_SUB_VALID = emoji("5352638632278660622", "📅")
 E_WELCOME = emoji("5352838545826420397", "👋")
@@ -88,7 +90,7 @@ flask_app = Flask("")
 
 @flask_app.route("/")
 def home():
-    return "Chile WA Telegram Bot is Active!", 200
+    return "Chile & HK WA Telegram Bot is Active!", 200
 
 def run_flask():
     port = int(os.environ.get("PORT", 8080))
@@ -107,8 +109,9 @@ SUB_DAYS, SUB_TXID, SUB_SCREENSHOT = range(3, 6)
     ADMIN_ADD_BAL_AMT,
     ADMIN_ZERO_BAL_USER,
     ADMIN_RATE_WA_CL_SET,
+    ADMIN_RATE_WA_HK_SET,
     ADMIN_BROADCAST,
-) = range(6, 13)
+) = range(6, 14)
 
 # Helper Functions
 def is_admin(user_id: int) -> bool:
@@ -156,16 +159,20 @@ def is_subscribed(user_id: int) -> bool:
             return True
     return False
 
-def get_rate():
+def get_rate(country: str = "cl"):
     doc = settings_col.find_one({"type": "rates"})
-    if doc and "rates" in doc and "wa_cl" in doc["rates"]:
-        return float(doc["rates"]["wa_cl"])
-    return 0.10
+    if doc and "rates" in doc:
+        if country == "cl" and "wa_cl" in doc["rates"]:
+            return float(doc["rates"]["wa_cl"])
+        elif country == "hk" and "wa_hk" in doc["rates"]:
+            return float(doc["rates"]["wa_hk"])
+    return 0.10 if country == "cl" else 0.15
 
-def set_rate(rate: float):
+def set_rate(country: str, rate: float):
+    field = "rates.wa_cl" if country == "cl" else "rates.wa_hk"
     settings_col.update_one(
         {"type": "rates"},
-        {"$set": {"rates.wa_cl": rate}},
+        {"$set": {field: rate}},
         upsert=True
     )
 
@@ -182,11 +189,22 @@ def set_bot_active(status: bool):
         upsert=True
     )
 
+# Daily Stats Recording & Check
+def record_otp_stat(country: str):
+    now_bd = get_bd_time()
+    date_str = now_bd.strftime("%Y-%m-%d")
+    stats_col.update_one(
+        {"date": date_str},
+        {"$inc": {f"countries.{country}": 1, "total": 1}},
+        upsert=True
+    )
+
 # Keyboards
 def get_main_keyboard(user_id):
     keyboard = [
         [KeyboardButton("💳 𝙰𝙲𝙲𝙾𝚄𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴"), KeyboardButton("🛒 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁")],
-        [KeyboardButton("👤 𝙼𝚈 𝙿𝚁𝙾𝙵𝙸𝙻𝙴"), KeyboardButton("💵 𝙳𝙸𝙿𝙾𝚂𝙸𝚃")]
+        [KeyboardButton("⚙️ 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈"), KeyboardButton("👤 𝙼𝚈 𝙿𝚁𝙾𝙵𝙸𝙻𝙴")],
+        [KeyboardButton("💵 𝙳𝙸𝙿𝙾𝚂𝙸𝚃")]
     ]
     if is_admin(user_id):
         keyboard.append([KeyboardButton("⚙️ 𝙰𝙳𝙼𝙸𝙽 𝙿𝙰𝙽𝙴𝙻")])
@@ -217,8 +235,8 @@ def get_vak_balance():
     except Exception:
         return 0.0
 
-def buy_vak_number(max_price: float = 0.087):
-    url = f"https://vak-sms.com/api/getNumber/?apiKey={VAK_SMS_API_KEY}&service=wa&country=cl&maxPrice={max_price}"
+def buy_vak_number(country: str = "cl", max_price: float = 0.087):
+    url = f"https://vak-sms.com/api/getNumber/?apiKey={VAK_SMS_API_KEY}&service=wa&country={country}&maxPrice={max_price}"
     try:
         res = requests.get(url, timeout=5).json()
         
@@ -282,7 +300,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     welcome_msg = (
-        f"👋 <b>𝚆𝙴𝙻𝙲𝙾𝙼𝙴 𝙲𝙷𝙸𝙻𝙴 𝚆𝙷𝙰𝚃𝚂𝙰𝙿𝙿 𝙱𝙾𝚃!</b> {E_WELCOME}\n\n"
+        f"👋 <b>𝚆𝙴𝙻𝙲𝙾𝙼𝙴 WHATSAPP 𝙱𝙾𝚃!</b> {E_WELCOME}\n\n"
         f"⚙️ <b>𝚃𝙶𝚂 𝚆𝙰 𝙽𝚄𝙼𝙱𝙴𝚁</b> {E_PHONE}"
     )
     await update.message.reply_text(welcome_msg, parse_mode="HTML", reply_markup=get_main_keyboard(user_id))
@@ -322,21 +340,34 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg, parse_mode="HTML")
         return
 
+    elif text == "⚙️ 𝚂𝙴𝚃 𝙲𝙾𝚄𝙽𝚃𝚁𝚈":
+        curr_country = u_data.get("selected_country", "cl")
+        c_name = "Chile (🇨🇱)" if curr_country == "cl" else "Hongkong (🇭🇰)"
+        
+        country_kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("🇨🇱 Chile (CL)", callback_data="set_country_cl"), InlineKeyboardButton("🇭🇰 Hongkong (HK)", callback_data="set_country_hk")]
+        ])
+        await update.message.reply_text(f"🌐 <b>CURRENT COUNTRY:</b> {c_name}\n\n👇 <b>Select your country:</b>", parse_mode="HTML", reply_markup=country_kb)
+        return
+
     elif text == "🛒 𝙱𝚈 𝙽𝚄𝙼𝙱𝙴𝚁":
         if user_id in active_orders:
             await update.message.reply_text(f"{E_CANCEL} 𝚈𝙾𝚄 𝙰𝙻𝚁𝙴𝙰𝙳𝚈 𝙷𝙰𝚅𝙴 𝙰𝙽 𝙰𝙲𝚃𝙸𝚅𝙴 𝙽𝚄𝙼𝙱𝙴𝚁. 𝙲𝙰𝙽𝙲𝙴𝙻 𝙾𝚁 𝙵𝙸𝙽𝙸𝚂𝙷 𝙸𝚃 𝙵𝙸𝚁𝚂𝚃.", parse_mode="HTML")
             return
 
-        rate = get_rate()
+        selected_country = u_data.get("selected_country", "cl")
+        rate = get_rate(selected_country)
+        max_price = 0.087 if selected_country == "cl" else 0.07
         user_bal = u_data.get("balance", 0.0)
 
         if user_bal < rate:
             await update.message.reply_text(f"{E_BAN} 𝙸𝙽𝚂𝚄𝙵𝙵𝙸𝙲𝙸𝙴𝙽𝚃 𝙱𝙰𝙻𝙰𝙽𝙲𝙴!\n⚡ 𝙽𝙴𝙴𝙳: <code>{rate:.2f}</code> USDT\n💰 𝚈𝙾𝚄𝚁 𝙱𝙰𝙻𝙰𝙽𝙲𝙴: <code>{user_bal:.4f}</code> USDT {E_BAL}", parse_mode="HTML")
             return
 
-        await update.message.reply_text(f"⏳ <b>𝚆𝙰𝙸𝚃 𝙵𝙾𝚁 𝙽𝚄𝙼𝙱𝙴𝚁...</b> {E_WAIT_OTP}", parse_mode="HTML")
+        c_flag = E_CL if selected_country == "cl" else E_HK
+        await update.message.reply_text(f"⏳ <b>𝚆𝙰𝙸𝚃 𝙵𝙾𝚁 {selected_country.upper()} 𝙽𝚄𝙼𝙱𝙴𝚁...</b> {E_WAIT_OTP}", parse_mode="HTML")
 
-        res = await asyncio.to_thread(buy_vak_number)
+        res = await asyncio.to_thread(buy_vak_number, selected_country, max_price)
         if "error" in res or "tel" not in res or "idNum" not in res:
             await update.message.reply_text(f"{E_CANCEL} <b>Stock Out!</b>", parse_mode="HTML")
             return
@@ -349,7 +380,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
 
         buying_msg = (
-            f"{E_UNBAN} <b>𝙽𝚄𝙼𝙱𝙴𝚁 𝙿𝚄𝚁𝙲𝙷𝙰𝚂𝙴𝙳!</b>\n\n"
+            f"{E_UNBAN} <b>{selected_country.upper()} 𝙽𝚄𝙼𝙱𝙴𝚁 𝙿𝚄𝚁𝙲𝙷𝙰𝚂𝙴𝙳!</b> {c_flag}\n\n"
             f"📱 <b>𝙽𝚄𝙼𝙱𝙴𝚁:</b> <code>{phone_num}</code> {E_PHONE}\n"
             f"💰 <b>𝙿𝚁𝙸𝙲𝙴:</b> <code>{rate:.2f}</code> USDT {E_BAL}\n\n"
             f"⏳ <b>𝚆𝙰𝙸𝚃𝙸𝙽𝙶 𝙵𝙾𝚁 𝙾𝚃𝙿 (𝙰𝚄𝚃𝙾 𝙿𝙾𝙻𝙻𝙸𝙽𝙶)...</b> {E_WAIT_OTP}"
@@ -360,6 +391,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "idNum": id_num,
             "phone": phone_num,
             "cost": rate,
+            "country": selected_country,
             "status": "WAITING_OTP",
             "message_id": sent_msg.message_id,
             "cancel_task": None,
@@ -397,6 +429,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     order_info = active_orders[user_id]
                     order_info["status"] = "COMPLETED"
                     order_msg_id = order_info["message_id"]
+                    ord_country = order_info["country"]
 
                     if order_info["cancel_task"]:
                         order_info["cancel_task"].cancel()
@@ -410,6 +443,9 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             }
                         }
                     )
+
+                    # Record Daily Stats
+                    record_otp_stat(ord_country)
 
                     await set_number_status_safe(id_num, "end")
                     del active_orders[user_id]
@@ -448,7 +484,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         try:
                             m_num = mask_number(phone_num)
                             group_text = (
-                                f"🎉 <b>𝙽𝙴𝚆 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙻 𝙾𝚃𝙿!</b> {E_WA}\n\n"
+                                f"🎉 <b>𝙽𝙴𝚆 𝚂𝚄𝙲𝙲𝙴𝚂𝚂𝙵𝚄𝙻 𝙾𝚃𝙿 ({ord_country.upper()})!</b> {E_WA}\n\n"
                                 f"👤 <b>𝚄𝚂𝙴𝚁 ID:</b> <code>{user_id}</code> {E_ID}\n"
                                 f"📱 <b>𝙽𝚄𝙼𝙱𝙴𝚁:</b> <code>{m_num}</code> {E_PHONE}\n"
                                 f"💬 <b>𝙾𝚃𝙿 𝙲𝙾𝙳𝙴:</b> <code>{otp_code}</code> {E_KEY_OTP}"
@@ -471,6 +507,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"👤 <b>𝚄𝚂𝙴𝚁 𝙿𝚁𝙾𝙵𝙸𝙻𝙴</b> {E_PROFILE_HEADER}\n\n"
             f"🆔 <b>𝚄𝚂𝙴𝚁 ID:</b> <code>{user_id}</code> {E_ID}\n"
             f"📛 <b>𝙽𝙰𝙼𝙴:</b> {u_data.get('full_name', 'User')} {E_NAME}\n"
+            f"🌐 <b>PREFERRED COUNTRY:</b> {u_data.get('selected_country', 'cl').upper()}\n"
             f"💵 <b>𝙱𝙰𝙻𝙰𝙽𝙲𝙴:</b> <code>{u_data.get('balance', 0.0):.4f}</code> USDT {E_BAL}\n"
             f"📊 <b>𝚃𝙾𝚃𝙰𝙻 𝙾𝚃𝙿 𝙱𝙾𝚄𝙶𝙷𝚃:</b> <code>{u_data.get('otp_count', 0)}</code> {E_OTP_RCV}\n"
             f"📅 <b>𝚂𝚄𝙱𝚂𝙲𝚁𝙸𝙿𝚃𝙸𝙾𝙽 𝚅𝙰𝙻𝙸𝙳:</b> {exp_str} {E_SUB_VALID}"
@@ -491,7 +528,8 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🚫 BAN USER", callback_data="admin_ban"), InlineKeyboardButton("✅ UNBAN USER", callback_data="admin_unban")],
             [InlineKeyboardButton("➕ ADD BALANCE", callback_data="admin_add_bal"), InlineKeyboardButton("🧹 ZERO BALANCE", callback_data="admin_zero_bal")],
             [InlineKeyboardButton("🧹 ZERO ALL BALANCES", callback_data="admin_zero_all_bal")],
-            [InlineKeyboardButton("📊 VIEW USERS", callback_data="admin_view_users"), InlineKeyboardButton("⚙️ SET RATE", callback_data="admin_set_rate")],
+            [InlineKeyboardButton("📊 VIEW USERS", callback_data="admin_view_users"), InlineKeyboardButton("📊 DAILY STATS", callback_data="admin_daily_stats")],
+            [InlineKeyboardButton("⚙️ SET CL RATE", callback_data="admin_set_rate_cl"), InlineKeyboardButton("⚙️ SET HK RATE", callback_data="admin_set_rate_hk")],
             [InlineKeyboardButton("💥 RESET ALL SUBSCRIPTIONS", callback_data="admin_reset_all_subs")],
             [InlineKeyboardButton(f"🤖 BOT STATUS: {status_text}", callback_data="admin_toggle_bot")],
             [InlineKeyboardButton("📢 BROADCAST", callback_data="admin_broadcast")]
@@ -522,6 +560,12 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
         else:
             await query.edit_message_text(f"{E_CANCEL} <b>𝙽𝙾 𝙰𝙲𝚃𝙸𝚅𝙴 𝙽𝚄𝙼𝙱𝙴𝚁 𝚃𝙾 𝙲𝙰𝙽𝙲𝙴𝙻.</b>", parse_mode="HTML")
 
+    elif data.startswith("set_country_"):
+        c_code = data.split("_")[2]
+        users_col.update_one({"user_id": user_id}, {"$set": {"selected_country": c_code}})
+        c_name = "Chile (🇨🇱)" if c_code == "cl" else "Hongkong (🇭🇰)"
+        await query.edit_message_text(f"✅ <b>Country successfully changed to:</b> {c_name}", parse_mode="HTML")
+
     elif data.startswith("copy_sms:"):
         target_uid = int(data.split(":")[1])
         sms_text = context.user_data.get(f"full_sms_{target_uid}", "No SMS Text Available")
@@ -538,22 +582,44 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
                 [InlineKeyboardButton("🚫 BAN USER", callback_data="admin_ban"), InlineKeyboardButton("✅ UNBAN USER", callback_data="admin_unban")],
                 [InlineKeyboardButton("➕ ADD BALANCE", callback_data="admin_add_bal"), InlineKeyboardButton("🧹 ZERO BALANCE", callback_data="admin_zero_bal")],
                 [InlineKeyboardButton("🧹 ZERO ALL BALANCES", callback_data="admin_zero_all_bal")],
-                [InlineKeyboardButton("📊 VIEW USERS", callback_data="admin_view_users"), InlineKeyboardButton("⚙️ SET RATE", callback_data="admin_set_rate")],
+                [InlineKeyboardButton("📊 VIEW USERS", callback_data="admin_view_users"), InlineKeyboardButton("📊 DAILY STATS", callback_data="admin_daily_stats")],
+                [InlineKeyboardButton("⚙️ SET CL RATE", callback_data="admin_set_rate_cl"), InlineKeyboardButton("⚙️ SET HK RATE", callback_data="admin_set_rate_hk")],
                 [InlineKeyboardButton("💥 RESET ALL SUBSCRIPTIONS", callback_data="admin_reset_all_subs")],
                 [InlineKeyboardButton(f"🤖 BOT STATUS: {status_text}", callback_data="admin_toggle_bot")],
                 [InlineKeyboardButton("📢 BROADCAST", callback_data="admin_broadcast")]
             ])
             await query.edit_message_reply_markup(reply_markup=admin_kb)
 
-        # সব ইউজারের ব্যালেন্স ০.০০ করার নতুন অপশন
         elif data == "admin_zero_all_bal":
             users_col.update_many({}, {"$set": {"balance": 0.0}})
             await query.message.reply_text("🧹 <b>SUCCESS! ALL USERS' BALANCES HAVE BEEN RESET TO 0.00 USDT.</b>", parse_mode="HTML")
 
-        # সব ইউজারের সাবস্ক্রিপশন রিসেট করার অপশন
         elif data == "admin_reset_all_subs":
             users_col.update_many({}, {"$set": {"subscription_expiry": None}})
-            await query.message.reply_text("💥 <b>SUCCESS! ALL USERS' SUBSCRIPTIONS HAVE BEEN RESET/CANCELLED.</b>\nNow all regular users will be asked to buy a subscription when they start or use the bot.", parse_mode="HTML")
+            await query.message.reply_text("💥 <b>SUCCESS! ALL USERS' SUBSCRIPTIONS HAVE BEEN RESET/CANCELLED.</b>", parse_mode="HTML")
+
+        elif data == "admin_daily_stats":
+            now_bd = get_bd_time()
+            date_str = now_bd.strftime("%Y-%m-%d")
+            stat_doc = stats_col.find_one({"date": date_str})
+            
+            if not stat_doc:
+                await query.message.reply_text(f"📊 <b>DAILY STATS ({date_str}):</b>\n\nNo OTPs received yet today.", parse_mode="HTML")
+                return
+
+            total = stat_doc.get("total", 0)
+            countries = stat_doc.get("countries", {})
+            cl_count = countries.get("cl", 0)
+            hk_count = countries.get("hk", 0)
+
+            stats_msg = (
+                f"📊 <b>DAILY STATS (BD Time - {date_str}):</b>\n\n"
+                f"🇨🇱 <b>Chile OTPs:</b> <code>{cl_count}</code>\n"
+                f"🇭🇰 <b>Hongkong OTPs:</b> <code>{hk_count}</code>\n"
+                f"----------------------------\n"
+                f"📦 <b>Total OTPs Today:</b> <code>{total}</code>"
+            )
+            await query.message.reply_text(stats_msg, parse_mode="HTML")
 
         elif data == "admin_view_users":
             all_users = list(users_col.find({}))
@@ -596,10 +662,15 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
             await query.message.reply_text("SEND USER ID TO ZERO BALANCE:")
             return ADMIN_ZERO_BAL_USER
 
-        elif data == "admin_set_rate":
-            curr_rate = get_rate()
+        elif data == "admin_set_rate_cl":
+            curr_rate = get_rate("cl")
             await query.message.reply_text(f"CURRENT CHILE WA RATE IS: <code>{curr_rate}</code> USDT\nSEND NEW RATE FOR CHILE WA:", parse_mode="HTML")
             return ADMIN_RATE_WA_CL_SET
+
+        elif data == "admin_set_rate_hk":
+            curr_rate = get_rate("hk")
+            await query.message.reply_text(f"CURRENT HONGKONG WA RATE IS: <code>{curr_rate}</code> USDT\nSEND NEW RATE FOR HONGKONG WA:", parse_mode="HTML")
+            return ADMIN_RATE_WA_HK_SET
 
         elif data == "admin_broadcast":
             await query.message.reply_text("SEND BROADCAST MESSAGE TO ALL USERS:")
@@ -859,11 +930,20 @@ async def admin_zero_bal_process(update: Update, context: ContextTypes.DEFAULT_T
         await update.message.reply_text("❌ INVALID USER ID.")
     return ConversationHandler.END
 
-async def admin_set_rate_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def admin_set_rate_cl_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         new_rate = float(update.message.text)
-        set_rate(new_rate)
+        set_rate("cl", new_rate)
         await update.message.reply_text(f"{E_UNBAN} CHILE WA RATE UPDATED TO: <code>{new_rate}</code> USDT", parse_mode="HTML")
+    except ValueError:
+        await update.message.reply_text("❌ INVALID RATE AMOUNT.")
+    return ConversationHandler.END
+
+async def admin_set_rate_hk_process(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        new_rate = float(update.message.text)
+        set_rate("hk", new_rate)
+        await update.message.reply_text(f"{E_UNBAN} HONGKONG WA RATE UPDATED TO: <code>{new_rate}</code> USDT", parse_mode="HTML")
     except ValueError:
         await update.message.reply_text("❌ INVALID RATE AMOUNT.")
     return ConversationHandler.END
@@ -1043,7 +1123,8 @@ def main():
             ADMIN_ADD_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_user_process)],
             ADMIN_ADD_BAL_AMT: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_add_bal_amt_process)],
             ADMIN_ZERO_BAL_USER: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_zero_bal_process)],
-            ADMIN_RATE_WA_CL_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_set_rate_process)],
+            ADMIN_RATE_WA_CL_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_set_rate_cl_process)],
+            ADMIN_RATE_WA_HK_SET: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_set_rate_hk_process)],
             ADMIN_BROADCAST: [MessageHandler(filters.TEXT & ~filters.COMMAND, admin_broadcast_process)],
         },
         fallbacks=[]
