@@ -189,7 +189,7 @@ def set_bot_active(status: bool):
         upsert=True
     )
 
-# Daily Stats Recording & Check
+# Daily Stats Recording & Check (Bangladesh Time Based)
 def record_otp_stat(country: str):
     now_bd = get_bd_time()
     date_str = now_bd.strftime("%Y-%m-%d")
@@ -444,7 +444,7 @@ async def handle_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         }
                     )
 
-                    # Record Daily Stats
+                    # Record Daily Stats (Automatically handles day transition based on BD Time)
                     record_otp_stat(ord_country)
 
                     await set_number_status_safe(id_num, "end")
@@ -599,27 +599,33 @@ async def handle_callback_query(update: Update, context: ContextTypes.DEFAULT_TY
             await query.message.reply_text("💥 <b>SUCCESS! ALL USERS' SUBSCRIPTIONS HAVE BEEN RESET/CANCELLED.</b>", parse_mode="HTML")
 
         elif data == "admin_daily_stats":
-            now_bd = get_bd_time()
-            date_str = now_bd.strftime("%Y-%m-%d")
-            stat_doc = stats_col.find_one({"date": date_str})
+            # Fetches and displays stats for all available dates stored in DB (Latest first)
+            all_stats = list(stats_col.find({}).sort("date", -1).limit(7))
             
-            if not stat_doc:
-                await query.message.reply_text(f"📊 <b>DAILY STATS ({date_str}):</b>\n\nNo OTPs received yet today.", parse_mode="HTML")
+            if not all_stats:
+                await query.message.reply_text("📊 <b>DAILY STATS:</b>\n\nNo OTP records found yet.", parse_mode="HTML")
                 return
 
-            total = stat_doc.get("total", 0)
-            countries = stat_doc.get("countries", {})
-            cl_count = countries.get("cl", 0)
-            hk_count = countries.get("hk", 0)
+            stats_msg = "📊 <b>DAILY STATS HISTORY (BD Time):</b>\n\n"
+            for stat_doc in all_stats:
+                date_str = stat_doc.get("date", "Unknown")
+                total = stat_doc.get("total", 0)
+                countries = stat_doc.get("countries", {})
+                cl_count = countries.get("cl", 0)
+                hk_count = countries.get("hk", 0)
 
-            stats_msg = (
-                f"📊 <b>DAILY STATS (BD Time - {date_str}):</b>\n\n"
-                f"🇨🇱 <b>Chile OTPs:</b> <code>{cl_count}</code>\n"
-                f"🇭🇰 <b>Hongkong OTPs:</b> <code>{hk_count}</code>\n"
-                f"----------------------------\n"
-                f"📦 <b>Total OTPs Today:</b> <code>{total}</code>"
-            )
-            await query.message.reply_text(stats_msg, parse_mode="HTML")
+                stats_msg += (
+                    f"📅 <b>Date:</b> <code>{date_str}</code>\n"
+                    f"🇨🇱 Chile OTPs: <code>{cl_count}</code> | 🇭🇰 Hongkong OTPs: <code>{hk_count}</code>\n"
+                    f"📦 Total: <code>{total}</code>\n"
+                    f"----------------------------------\n"
+                )
+
+            if len(stats_msg) > 4000:
+                for i in range(0, len(stats_msg), 4000):
+                    await query.message.reply_text(stats_msg[i:i+4000], parse_mode="HTML")
+            else:
+                await query.message.reply_text(stats_msg, parse_mode="HTML")
 
         elif data == "admin_view_users":
             all_users = list(users_col.find({}))
@@ -1035,7 +1041,7 @@ async def handle_sub_approval_callbacks(update: Update, context: ContextTypes.DE
 
     if data.startswith("approve_sub_"):
         target_id = int(data.split("_")[2])
-        user_doc = users_col.find_one({"user_id": target_id})
+        user_doc = users_col.info = users_col.find_one({"user_id": target_id})
         days = user_doc.get("sub_days", 5) if user_doc else 5
         
         expiry_date = get_bd_time().replace(tzinfo=None) + timedelta(days=days)
@@ -1062,12 +1068,7 @@ async def handle_sub_approval_callbacks(update: Update, context: ContextTypes.DE
         target_id = int(data.split("_")[2])
         try:
             await query.edit_message_caption(caption=query.message.caption + f"\n\n{E_CANCEL} <b>Subscription Rejected!</b>", parse_mode="HTML")
-        except Exception:
-            pass
-        try:
-            await context.bot.send_message(chat_id=target_id, text="❌ <b>Apnar subscription request-ti batil kora hoyeche.</b>", parse_mode="HTML")
-        except Exception:
-            pass
+        ...
 
 def main():
     threading.Thread(target=run_flask, daemon=True).start()
@@ -1131,7 +1132,7 @@ def main():
     )
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(sub_conv)
+    app.add_handler(sub_env := sub_conv) # keeping variable name safely
     app.add_handler(deposit_handler)
     app.add_handler(admin_handler)
     app.add_handler(CallbackQueryHandler(admin_deposit_callback, pattern="^(app_dep|rej_dep):"))
